@@ -1,0 +1,13 @@
+{
+  "name": "dsa-mistake-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A focused DSA mistake tracker with LeetCode profile insights and revision planning.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
