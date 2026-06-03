@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   BarChart3,
   BookOpenCheck,
   Brain,
-  CheckCircle2,
   ChevronRight,
   ClipboardList,
   LogOut,
   Moon,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Sun,
   Target,
   UserRound
@@ -196,8 +196,16 @@ function Workspace() {
     setStatus(message);
   }
 
+  async function runAnalysis() {
+    setStatus("Generating analysis from LeetCode and app signals...");
+    const payload = await api("/api/profile/analysis", { method: "POST" });
+    setDashboard(payload.dashboard);
+    setStatus(`Analysis generated with ${payload.analysis.mode === "ai" ? "AI" : "rule engine"} mode.`);
+  }
+
   const navItems = [
     ["dashboard", BarChart3, "Dashboard"],
+    ["analysis", Sparkles, "Analysis"],
     ["mistakes", ClipboardList, "Mistakes"],
     ["revisions", BookOpenCheck, "Revision"],
     ["patterns", Target, "Patterns"],
@@ -244,7 +252,14 @@ function Workspace() {
           <Splash />
         ) : (
           <>
-            {view === "dashboard" && <Dashboard dashboard={dashboard} onRefresh={() => refreshDashboard("Dashboard refreshed.")} />}
+            {view === "dashboard" && (
+              <Dashboard
+                dashboard={dashboard}
+                onAnalyze={runAnalysis}
+                onRefresh={() => refreshDashboard("Dashboard refreshed.")}
+              />
+            )}
+            {view === "analysis" && <Analysis dashboard={dashboard} onAnalyze={runAnalysis} />}
             {view === "mistakes" && <Mistakes dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
             {view === "revisions" && <Revisions dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
             {view === "patterns" && <Patterns dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
@@ -287,8 +302,8 @@ function LeetcodeSync({ current, onSync }) {
   );
 }
 
-function Dashboard({ dashboard, onRefresh }) {
-  const { metrics, topicInsights, uncoveredTopics, recommendations, learningCurve } = dashboard;
+function Dashboard({ dashboard, onRefresh, onAnalyze }) {
+  const { metrics, attemptStats, topicInsights, uncoveredTopics, recommendations, learningCurve } = dashboard;
   const accuracy = metrics.submissions.all ? Math.round((metrics.solved.all / metrics.submissions.all) * 100) : 0;
   const strongest = [...topicInsights].sort((a, b) => b.strength - a.strength).slice(0, 5);
   const weakest = topicInsights.slice(0, 5);
@@ -296,11 +311,11 @@ function Dashboard({ dashboard, onRefresh }) {
   return (
     <section className="stack">
       <div className="metric-grid">
-        <Metric label="Solved" value={metrics.solved.all} detail={`E ${metrics.solved.easy} · M ${metrics.solved.medium} · H ${metrics.solved.hard}`} />
+        <Metric label="Solved" value={metrics.solved.all} detail={`E ${metrics.solved.easy} - M ${metrics.solved.medium} - H ${metrics.solved.hard}`} />
         <Metric label="Accuracy" value={`${accuracy}%`} detail="Accepted vs submissions" />
         <Metric label="Active days" value={metrics.activeDays} detail={`Current streak ${metrics.streak}`} />
         <Metric label="Due revisions" value={metrics.dueRevisions} detail={`${metrics.openMistakes} open mistakes`} />
-        <Metric label="Patterns complete" value={metrics.completedPatterns} detail="Tracked in app" />
+        <Metric label="Recent attempts" value={attemptStats.totalRecent || 0} detail={`${attemptStats.failedRecent || 0} failed - ${attemptStats.recentAcceptanceRate || 0}% accepted`} />
       </div>
 
       <div className="grid two">
@@ -316,7 +331,7 @@ function Dashboard({ dashboard, onRefresh }) {
           </ResponsiveContainer>
         </Panel>
 
-        <Panel title="Rule-Based Report" icon={<Brain size={18} />}>
+        <Panel title="Dynamic Report" icon={<Brain size={18} />} action={<button onClick={onAnalyze}>Generate analysis</button>}>
           <div className="report">
             <p>{recommendations.report.summary}</p>
             <p>{recommendations.report.diagnosis}</p>
@@ -342,6 +357,98 @@ function Dashboard({ dashboard, onRefresh }) {
       </div>
 
       <Recommendations recommendations={recommendations} />
+    </section>
+  );
+}
+
+function Analysis({ dashboard, onAnalyze }) {
+  const analysis = dashboard.latestAnalysis;
+  const report = analysis?.report;
+  const attemptStats = dashboard.attemptStats || {};
+
+  if (!report) {
+    return (
+      <Panel title="AI / Rule Analysis" icon={<Sparkles size={18} />} action={<button onClick={onAnalyze}>Generate analysis</button>}>
+        <Empty text="No analysis report yet. Generate one after syncing LeetCode and logging mistakes." />
+      </Panel>
+    );
+  }
+
+  return (
+    <section className="stack">
+      <div className="metric-grid">
+        <Metric label="Mode" value={analysis.mode.toUpperCase()} detail={analysis.model || analysis.provider} />
+        <Metric label="Risk" value={report.riskLevel} detail="Current learning risk" />
+        <Metric label="Confidence" value={`${Math.round(report.confidenceScore)}%`} detail="Plan confidence" />
+        <Metric label="Recent failed" value={attemptStats.failedRecent || 0} detail="LeetCode public submissions" />
+        <Metric label="Themes" value={report.mistakeThemes?.length || 0} detail="Mistake clusters found" />
+      </div>
+
+      <Panel title="Analysis Summary" icon={<Sparkles size={18} />} action={<button onClick={onAnalyze}>Regenerate</button>}>
+        <div className="report">
+          <p>{report.summary}</p>
+        </div>
+      </Panel>
+
+      <div className="grid three">
+        <Panel title="Weak Signals">
+          <div className="card-list">
+            {report.weakSignals.map((item) => (
+              <article className="item-card" key={item.area}>
+                <header>
+                  <strong>{item.area}</strong>
+                  <Badge tone="warn">focus</Badge>
+                </header>
+                <p>{item.evidence}</p>
+                <span>{item.nextAction}</span>
+              </article>
+            ))}
+          </div>
+        </Panel>
+        <Panel title="Mistake Themes">
+          <div className="card-list">
+            {report.mistakeThemes.map((item) => (
+              <article className="item-card" key={item.theme}>
+                <header>
+                  <strong>{item.theme}</strong>
+                  <Badge tone="danger">{item.count}</Badge>
+                </header>
+                <p>{item.correction}</p>
+              </article>
+            ))}
+          </div>
+        </Panel>
+        <Panel title="Revision Strategy">
+          <div className="card-list">
+            {report.revisionStrategy.map((item) => (
+              <article className="item-card" key={item.title}>
+                <header>
+                  <strong>{item.title}</strong>
+                  <Badge tone="info">{item.cadence}</Badge>
+                </header>
+                <p>{item.drill}</p>
+              </article>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      <Panel title="AI Practice Focus">
+        <div className="question-grid">
+          {report.practiceFocus.map((item) => (
+            <article className="question-card" key={`${item.title}-${item.topic}`}>
+              <header>
+                <strong>{item.title}</strong>
+                <Badge tone={item.difficulty === "Hard" ? "danger" : item.difficulty === "Medium" ? "warn" : "good"}>
+                  {item.difficulty}
+                </Badge>
+              </header>
+              <span>{item.topic}</span>
+              <p>{item.reason}</p>
+            </article>
+          ))}
+        </div>
+      </Panel>
     </section>
   );
 }
@@ -409,7 +516,7 @@ function Mistakes({ dashboard, api, onChanged }) {
               <header>
                 <div>
                   <strong>{mistake.problemTitle}</strong>
-                  <span>{mistake.topic} · {mistake.pattern} · severity {mistake.severity}</span>
+                  <span>{mistake.topic} - {mistake.pattern} - severity {mistake.severity}</span>
                 </div>
                 <Badge tone={mistake.status === "resolved" ? "good" : "warn"}>{mistake.status}</Badge>
               </header>
@@ -450,7 +557,7 @@ function Revisions({ dashboard, api, onChanged }) {
               <header>
                 <div>
                   <strong>{session.title}</strong>
-                  <span>{new Date(session.scheduledFor).toLocaleDateString()} · {session.durationMinutes} min</span>
+                  <span>{new Date(session.scheduledFor).toLocaleDateString()} - {session.durationMinutes} min</span>
                 </div>
                 <Badge tone={session.status === "completed" ? "good" : "info"}>{session.status}</Badge>
               </header>
@@ -507,7 +614,7 @@ function Patterns({ dashboard, api, onChanged }) {
                 <strong>{pattern.pattern}</strong>
                 <Badge tone={pattern.status === "complete" ? "good" : "info"}>{pattern.status}</Badge>
               </header>
-              <span>{pattern.topic} · confidence {pattern.confidence}% · solved {pattern.solvedCount}</span>
+              <span>{pattern.topic} - confidence {pattern.confidence}% - solved {pattern.solvedCount}</span>
             </article>
           ))}
         </div>
@@ -534,7 +641,7 @@ function Recommendations({ recommendations }) {
                 {question.difficulty}
               </Badge>
             </header>
-            <span>{question.topic} · {question.pattern}</span>
+            <span>{question.topic} - {question.pattern}</span>
             <p>{question.reason}</p>
             <ChevronRight size={18} />
           </a>
@@ -558,8 +665,8 @@ function Profile({ dashboard }) {
             {profile.userAvatar && <img src={profile.userAvatar} alt="" />}
             <div>
               <h2>{profile.realName || latest.username}</h2>
-              <p>Rank {profile.ranking?.toLocaleString() || "unknown"} · Reputation {profile.reputation || 0}</p>
-              <p>{profile.countryName || ""} {profile.company ? `· ${profile.company}` : ""}</p>
+              <p>Rank {profile.ranking?.toLocaleString() || "unknown"} - Reputation {profile.reputation || 0}</p>
+              <p>{profile.countryName || ""} {profile.company ? `- ${profile.company}` : ""}</p>
             </div>
           </div>
         )}
@@ -642,6 +749,7 @@ function Select({ name, options, placeholder }) {
 function viewTitle(view) {
   return {
     dashboard: "Learning dashboard",
+    analysis: "Analysis",
     mistakes: "Mistake workflow",
     revisions: "Revision plan",
     patterns: "Pattern mastery",

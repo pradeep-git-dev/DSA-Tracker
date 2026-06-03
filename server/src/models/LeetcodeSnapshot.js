@@ -34,9 +34,21 @@ const leetcodeSnapshotSchema = new mongoose.Schema(
       type: [mongoose.Schema.Types.Mixed],
       default: []
     },
+    recentQuestions: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: []
+    },
     topicInsights: {
       type: [mongoose.Schema.Types.Mixed],
       default: []
+    },
+    attemptStats: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    syncQuality: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
     },
     raw: {
       type: mongoose.Schema.Types.Mixed,

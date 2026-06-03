@@ -20,5 +20,7 @@ export const env = {
   refreshTokenTtl: process.env.REFRESH_TOKEN_TTL || "7d",
   bcryptRounds: Number(process.env.BCRYPT_ROUNDS || 12),
   cookieSecure: process.env.COOKIE_SECURE === "true" || process.env.NODE_ENV === "production",
-  leetcodeGraphqlUrl: process.env.LEETCODE_GRAPHQL_URL || "https://leetcode.com/graphql"
+  leetcodeGraphqlUrl: process.env.LEETCODE_GRAPHQL_URL || "https://leetcode.com/graphql",
+  openAiApiKey: process.env.OPENAI_API_KEY || "",
+  openAiModel: process.env.OPENAI_MODEL || "gpt-5.2"
 };

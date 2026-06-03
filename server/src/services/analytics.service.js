@@ -2,6 +2,7 @@ import { LeetcodeSnapshot } from "../models/LeetcodeSnapshot.js";
 import { Mistake } from "../models/Mistake.js";
 import { PatternProgress } from "../models/PatternProgress.js";
 import { RevisionSession } from "../models/RevisionSession.js";
+import { AnalysisReport } from "../models/AnalysisReport.js";
 import { buildRecommendations } from "./recommendation.service.js";
 
 export const coreTopics = [
@@ -27,12 +28,13 @@ export const coreTopics = [
 ];
 
 export async function buildDashboard(user) {
-  const [snapshot, mistakes, sessions, patterns, snapshots] = await Promise.all([
+  const [snapshot, mistakes, sessions, patterns, snapshots, latestAnalysis] = await Promise.all([
     LeetcodeSnapshot.findOne({ user: user._id }).sort({ createdAt: -1 }),
     Mistake.find({ user: user._id }).sort({ createdAt: -1 }).limit(100),
     RevisionSession.find({ user: user._id }).sort({ scheduledFor: 1 }).limit(50),
     PatternProgress.find({ user: user._id }).sort({ confidence: 1 }),
-    LeetcodeSnapshot.find({ user: user._id }).sort({ createdAt: 1 }).limit(24)
+    LeetcodeSnapshot.find({ user: user._id }).sort({ createdAt: 1 }).limit(24),
+    AnalysisReport.findOne({ user: user._id }).sort({ createdAt: -1 })
   ]);
 
   const openMistakes = mistakes.filter((mistake) => mistake.status !== "resolved");
@@ -71,13 +73,24 @@ export async function buildDashboard(user) {
       dueRevisions: dueRevisions.length,
       completedPatterns: patterns.filter((pattern) => pattern.status === "complete").length
     },
+    attemptStats: snapshot?.attemptStats || {
+      totalRecent: 0,
+      acceptedRecent: 0,
+      failedRecent: 0,
+      recentAcceptanceRate: 0,
+      statusCounts: {},
+      languageCounts: {},
+      problemAttempts: [],
+      topicAttempts: []
+    },
     learningCurve: buildLearningCurve(snapshots, snapshot),
     topicInsights,
     uncoveredTopics,
     mistakes,
     revisions: sessions,
     patterns,
-    recommendations
+    recommendations,
+    latestAnalysis
   };
 }
 

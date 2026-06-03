@@ -150,12 +150,18 @@ function buildTopicInsights(questions, recentSubmissions) {
         medium: 0,
         hard: 0,
         failedRecent: 0,
+        acceptedRecent: 0,
         recentProblems: []
       };
 
       current.solved += 1;
       current[question.difficulty.toLowerCase()] += 1;
       current.failedRecent += failedBySlug[question.titleSlug] || 0;
+      current.acceptedRecent += recentSubmissions.some(
+        (submission) => submission.titleSlug === question.titleSlug && submission.statusDisplay === "Accepted"
+      )
+        ? 1
+        : 0;
       current.recentProblems.push(question.title);
       topics.set(tag.name, current);
     }
@@ -164,9 +170,61 @@ function buildTopicInsights(questions, recentSubmissions) {
   return [...topics.values()]
     .map((topic) => ({
       ...topic,
-      strength: Math.max(5, Math.min(98, Math.round(topic.solved * 14 + topic.medium * 7 + topic.hard * 12 - topic.failedRecent * 10)))
+      acceptanceSignal: topic.acceptedRecent / Math.max(1, topic.acceptedRecent + topic.failedRecent),
+      strength: Math.max(
+        5,
+        Math.min(98, Math.round(topic.solved * 14 + topic.medium * 7 + topic.hard * 12 - topic.failedRecent * 10))
+      )
     }))
     .sort((a, b) => b.strength - a.strength);
+}
+
+function buildAttemptStats(recentSubmissions, recentQuestions) {
+  const questionBySlug = new Map(recentQuestions.map((question) => [question.titleSlug, question]));
+  const statusCounts = {};
+  const languageCounts = {};
+  const problemAttempts = {};
+  const topicAttempts = {};
+
+  for (const submission of recentSubmissions) {
+    statusCounts[submission.statusDisplay] = (statusCounts[submission.statusDisplay] || 0) + 1;
+    languageCounts[submission.lang] = (languageCounts[submission.lang] || 0) + 1;
+    const problem = problemAttempts[submission.titleSlug] || {
+      title: submission.title,
+      titleSlug: submission.titleSlug,
+      accepted: 0,
+      failed: 0,
+      lastTimestamp: Number(submission.timestamp || 0)
+    };
+
+    if (submission.statusDisplay === "Accepted") problem.accepted += 1;
+    else problem.failed += 1;
+    problem.lastTimestamp = Math.max(problem.lastTimestamp, Number(submission.timestamp || 0));
+    problemAttempts[submission.titleSlug] = problem;
+
+    const question = questionBySlug.get(submission.titleSlug);
+    for (const tag of question?.topicTags || []) {
+      const topic = topicAttempts[tag.name] || { topic: tag.name, accepted: 0, failed: 0, attempts: 0 };
+      topic.attempts += 1;
+      if (submission.statusDisplay === "Accepted") topic.accepted += 1;
+      else topic.failed += 1;
+      topicAttempts[tag.name] = topic;
+    }
+  }
+
+  const failedRecent = recentSubmissions.filter((submission) => submission.statusDisplay !== "Accepted").length;
+  const acceptedRecent = recentSubmissions.filter((submission) => submission.statusDisplay === "Accepted").length;
+
+  return {
+    totalRecent: recentSubmissions.length,
+    acceptedRecent,
+    failedRecent,
+    recentAcceptanceRate: recentSubmissions.length ? Math.round((acceptedRecent / recentSubmissions.length) * 100) : 0,
+    statusCounts,
+    languageCounts,
+    problemAttempts: Object.values(problemAttempts).sort((a, b) => b.failed - a.failed || b.lastTimestamp - a.lastTimestamp),
+    topicAttempts: Object.values(topicAttempts).sort((a, b) => b.failed - a.failed || b.attempts - a.attempts)
+  };
 }
 
 export async function fetchLeetcodeProfile(username) {
@@ -203,6 +261,7 @@ export async function fetchLeetcodeProfile(username) {
   const counts = normalizeCounts(data.matchedUser.submitStatsGlobal);
   const recentSubmissions = data.recentSubmissionList || [];
   const topicInsights = buildTopicInsights(cleanQuestions, recentSubmissions);
+  const attemptStats = buildAttemptStats(recentSubmissions, cleanQuestions);
 
   return {
     source: "leetcode",
@@ -221,6 +280,12 @@ export async function fetchLeetcodeProfile(username) {
     recentSubmissions,
     recentQuestions: cleanQuestions,
     topicInsights,
+    attemptStats,
+    syncQuality: {
+      recentSubmissionCount: recentSubmissions.length,
+      enrichedQuestionCount: cleanQuestions.length,
+      hasCalendar: Boolean(calendarData)
+    },
     limitations: {
       calendar: calendarData ? null : "LeetCode did not expose calendar data for this profile."
     }

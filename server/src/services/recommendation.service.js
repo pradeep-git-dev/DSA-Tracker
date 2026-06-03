@@ -51,6 +51,8 @@ export function buildRecommendations({ snapshot, mistakes, patterns, topicInsigh
   }
 
   const recentSolved = new Set((snapshot?.recentAccepted || []).map((item) => item.titleSlug));
+  const failedProblems = new Map((snapshot?.attemptStats?.problemAttempts || []).map((item) => [item.titleSlug, item.failed]));
+  const failedTopics = new Map((snapshot?.attemptStats?.topicAttempts || []).map((item) => [item.topic, item.failed]));
   const scheduledTopics = new Set(
     sessions.filter((session) => session.status === "scheduled").map((session) => session.focusTopic)
   );
@@ -62,11 +64,12 @@ export function buildRecommendations({ snapshot, mistakes, patterns, topicInsigh
       const patternPenalty = patterns.find((pattern) => pattern.pattern === question.pattern)?.status === "complete" ? -18 : 0;
       const difficultyBoost = question.difficulty === "Hard" ? 8 : question.difficulty === "Medium" ? 16 : 4;
       const scheduledPenalty = scheduledTopics.has(question.topic) ? -8 : 0;
+      const leetcodeFailureBoost = (failedProblems.get(question.slug) || 0) * 18 + (failedTopics.get(question.topic) || 0) * 5;
 
       return {
         ...question,
-        score: Math.round(topicScore + difficultyBoost + patternPenalty + scheduledPenalty),
-        reason: explainRecommendation(question.topic, topicScore)
+        score: Math.round(topicScore + difficultyBoost + patternPenalty + scheduledPenalty + leetcodeFailureBoost),
+        reason: explainRecommendation(question.topic, topicScore, leetcodeFailureBoost)
       };
     })
     .sort((a, b) => b.score - a.score)
@@ -126,7 +129,8 @@ function mostCommon(values) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "Mixed practice";
 }
 
-function explainRecommendation(topic, score) {
+function explainRecommendation(topic, score, leetcodeFailureBoost) {
+  if (leetcodeFailureBoost > 0) return `${topic} has recent LeetCode failed-attempt pressure.`;
   if (score > 80) return `${topic} is currently a high-priority weak area.`;
   if (score > 45) return `${topic} needs reinforcement from recent app activity.`;
   return `${topic} keeps coverage balanced.`;
