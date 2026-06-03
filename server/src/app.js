@@ -2,6 +2,7 @@ import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import fs from "fs";
 import helmet from "helmet";
 import morgan from "morgan";
 import path from "path";
@@ -19,6 +20,8 @@ import patternRoutes from "./routes/patterns.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const distPath = path.resolve(__dirname, "../../dist");
+const clientIndexPath = path.join(distPath, "index.html");
 
 export function createApp() {
   const app = express();
@@ -53,10 +56,22 @@ export function createApp() {
   app.use("/api/revisions", revisionRoutes);
   app.use("/api/patterns", patternRoutes);
 
-  if (env.nodeEnv === "production") {
-    const distPath = path.resolve(__dirname, "../../dist");
+  if (fs.existsSync(clientIndexPath)) {
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => res.sendFile(path.join(distPath, "index.html")));
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      return res.sendFile(clientIndexPath);
+    });
+  } else {
+    app.get("/", (_req, res) => {
+      res.json({
+        app: "DSA Tracker API",
+        status: "running",
+        client: env.clientOrigin,
+        health: "/api/health",
+        note: "Run npm run client for the React app, or npm run build to let this API serve the built client."
+      });
+    });
   }
 
   app.use(notFound);
