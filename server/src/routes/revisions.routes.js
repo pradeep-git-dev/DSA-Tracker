@@ -54,6 +54,8 @@ router.post(
     res.status(201).json({ revisions: created });
   })
 );
+
+router.post(
   "/generate",
   asyncHandler(async (req, res) => {
     const dashboard = await buildDashboard(req.user);
@@ -109,6 +111,20 @@ router.patch(
       { $inc: { reviewCount: 1 }, $set: { lastReviewedAt: new Date(), status: "reviewing" } }
     );
 
+    res.json({ revision });
+  })
+);
+
+router.patch(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const input = z.object({ status: z.enum(["scheduled", "completed", "skipped"]) }).parse(req.body);
+    const revision = await RevisionSession.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      { status: input.status, completedAt: input.status === "completed" ? new Date() : undefined },
+      { new: true }
+    );
+    if (!revision) throw new ApiError(404, "Revision session not found.");
     res.json({ revision });
   })
 );
