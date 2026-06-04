@@ -747,11 +747,12 @@ function Revisions({ dashboard, api, onChanged }) {
   async function scheduleCustom(event) {
     event.preventDefault();
     setError("");
-    const form = new FormData(event.currentTarget);
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
     const payload = Object.fromEntries(form);
     try {
       await api("/api/revisions", { method: "POST", body: JSON.stringify(payload) });
-      event.currentTarget.reset();
+      formEl.reset();
       await onChanged("Custom spaced repetition schedule created.");
     } catch (err) {
       setError(err.message);
@@ -903,194 +904,191 @@ function Revisions({ dashboard, api, onChanged }) {
         </article>
       </div>
 
-      <div className="grid two">
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {/* Spaced Repetition Form */}
-          <Panel title="Schedule Spaced Repetitions">
-            <form className="form-grid" onSubmit={scheduleCustom} style={{ display: "grid", gap: "14px" }}>
-              <div style={{ gridColumn: "1 / -1", display: "grid", gap: "12px" }}>
-                <div>
-                  <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Select Topic</label>
-                  <Select name="topic" options={topics} placeholder="Topic" />
-                </div>
-                <div>
-                  <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Pattern Name (optional)</label>
-                  <input name="pattern" placeholder="e.g. Two Pointers" />
-                </div>
-                <div>
-                  <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Solved Count</label>
-                  <input name="solvedCount" type="number" min="0" placeholder="e.g. 10" defaultValue="0" />
-                </div>
-                <div>
-                  <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Spaced Repetition Days Schedule</label>
-                  <input name="scheduleDays" placeholder="e.g. 2,4,5,6,7" defaultValue="2,4,5,6,7" required />
-                  <small style={{ color: "var(--muted)", fontSize: "11px", marginTop: "4px", display: "block" }}>
-                    Comma-separated day offsets from today.
-                  </small>
-                </div>
-              </div>
-              {error && <p className="error" style={{ gridColumn: "1 / -1" }}>{error}</p>}
-              <button className="primary-action" style={{ gridColumn: "1 / -1" }}>Create Schedule</button>
-            </form>
-          </Panel>
-
-          {/* Pattern Wise Revision Score */}
-          <Panel title="Pattern Completion Scores">
-            <div className="card-list compact" style={{ maxHeight: "250px", overflowY: "auto", paddingRight: "4px" }}>
-              {Object.keys(patternScores).length === 0 ? (
-                <Empty text="No scheduled patterns to score yet." />
-              ) : (
-                Object.entries(patternScores).map(([name, data]) => {
-                  const rate = Math.round((data.completed / data.scheduled) * 100);
-                  return (
-                    <div key={name} style={{ display: "flex", flexDirection: "column", gap: "6px", borderBottom: "1px solid var(--line)", paddingBottom: "8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-                        <strong>{name}</strong>
-                        <span>{data.completed}/{data.scheduled} ({rate}%)</span>
-                      </div>
-                      <div className="bar-track">
-                        <div className="bar-fill" style={{ width: `${rate}%`, background: rate >= 70 ? "var(--good)" : rate >= 40 ? "var(--warn)" : "var(--brand)" }} />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </Panel>
+      {/* Full-width Calendar */}
+      <Panel title="Revision Calendar" action={
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={{ border: "1px solid var(--line)", background: "var(--surface)", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }} onClick={prevMonth}>&lt;</button>
+          <strong style={{ fontSize: "14px", minWidth: "120px", textAlign: "center" }}>{monthNames[month]} {year}</strong>
+          <button style={{ border: "1px solid var(--line)", background: "var(--surface)", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }} onClick={nextMonth}>&gt;</button>
         </div>
-
-        <div>
-          {/* Calendar Panel */}
-          <Panel title="Revision Calendar" action={
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <button style={{ border: "1px solid var(--line)", background: "var(--surface)", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }} onClick={prevMonth}>&lt;</button>
-              <strong style={{ fontSize: "14px", minWidth: "120px", textAlign: "center" }}>{monthNames[month]} {year}</strong>
-              <button style={{ border: "1px solid var(--line)", background: "var(--surface)", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }} onClick={nextMonth}>&gt;</button>
-            </div>
-          }>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "6px", textAlign: "center", fontWeight: "700", fontSize: "12px", marginBottom: "8px", color: "var(--muted)" }}>
-              <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "6px", gridAutoRows: "minmax(72px, auto)" }}>
-              {daysGrid.map((cell, idx) => {
-                if (cell.isPadding) {
-                  return <div key={`pad-${idx}`} style={{ background: "var(--surface-2)", opacity: 0.2, borderRadius: "6px" }} />;
-                }
-                const hasSessions = cell.sessions.length > 0;
-                return (
-                  <div
-                    key={`day-${cell.day}`}
-                    onClick={() => setSelectedDaySessions(cell)}
-                    style={{
-                      background: cell.today
-                        ? "rgba(239, 68, 68, 0.15)"
-                        : hasSessions
-                          ? "var(--surface-2)"
-                          : "var(--surface)",
-                      border: cell.today
-                        ? "2px solid var(--brand)"
-                        : hasSessions
-                          ? "1px solid var(--line)"
-                          : "1px solid var(--line)",
-                      borderRadius: "6px",
-                      padding: "6px",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      transition: "all 0.2s ease",
-                      boxShadow: hasSessions ? "0 2px 4px rgba(0,0,0,0.02)" : "none",
-                      position: "relative"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-2px)";
-                      e.currentTarget.style.borderColor = "var(--brand)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "none";
-                      e.currentTarget.style.borderColor = cell.today ? "var(--brand)" : "var(--line)";
-                    }}
-                  >
-                    <span style={{ fontSize: "11px", fontWeight: "bold", color: cell.today ? "var(--brand)" : "var(--ink)" }}>
-                      {cell.day} {cell.today && <span style={{ fontSize: "8px", fontWeight: "normal", verticalAlign: "middle" }}>(Today)</span>}
-                    </span>
-                    {hasSessions && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "2px", marginTop: "4px" }}>
-                        {cell.sessions.map((s) => (
-                          <span
-                            key={s._id}
-                            title={`${s.title} (${s.status})`}
-                            style={{
-                              fontSize: "8px",
-                              background: s.status === "completed" ? "var(--good)" : "var(--brand)",
-                              color: "#fff",
-                              padding: "2px 4px",
-                              borderRadius: "3px",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              width: "100%",
-                              textAlign: "center",
-                              fontWeight: "700"
-                            }}
-                          >
-                            {s.pattern || s.focusTopic}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+      }>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "6px", textAlign: "center", fontWeight: "700", fontSize: "12px", marginBottom: "8px", color: "var(--muted)" }}>
+          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px", gridAutoRows: "minmax(85px, auto)" }}>
+          {daysGrid.map((cell, idx) => {
+            if (cell.isPadding) {
+              return <div key={`pad-${idx}`} style={{ background: "var(--surface-2)", opacity: 0.15, borderRadius: "6px" }} />;
+            }
+            const hasSessions = cell.sessions.length > 0;
+            return (
+              <div
+                key={`day-${cell.day}`}
+                onClick={() => setSelectedDaySessions(cell)}
+                style={{
+                  background: cell.today
+                    ? "rgba(239, 68, 68, 0.15)"
+                    : hasSessions
+                      ? "var(--surface-2)"
+                      : "var(--surface)",
+                  border: cell.today
+                    ? "2.5px solid var(--brand)"
+                    : hasSessions
+                      ? "1px solid var(--line)"
+                      : "1px solid var(--line)",
+                  borderRadius: "6px",
+                  padding: "8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  transition: "all 0.2s ease",
+                  boxShadow: hasSessions ? "0 2px 4px rgba(0,0,0,0.02)" : "none",
+                  position: "relative"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.borderColor = "var(--brand)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "none";
+                  e.currentTarget.style.borderColor = cell.today ? "var(--brand)" : "var(--line)";
+                }}
+              >
+                <span style={{ fontSize: "11px", fontWeight: "bold", color: cell.today ? "var(--brand)" : "var(--ink)" }}>
+                  {cell.day} {cell.today && <span style={{ fontSize: "8px", fontWeight: "normal", verticalAlign: "middle" }}>(Today)</span>}
+                </span>
+                {hasSessions && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "2px", marginTop: "4px" }}>
+                    {cell.sessions.map((s) => (
+                      <span
+                        key={s._id}
+                        title={`${s.title} (${s.status})`}
+                        style={{
+                          fontSize: "8px",
+                          background: s.status === "completed" ? "var(--good)" : "var(--brand)",
+                          color: "#fff",
+                          padding: "2px 4px",
+                          borderRadius: "3px",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          width: "100%",
+                          textAlign: "center",
+                          fontWeight: "700"
+                        }}
+                      >
+                        {s.pattern || s.focusTopic}
+                      </span>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          </Panel>
-
-          {/* Checklist overlay */}
-          {selectedDaySessions && (
-            <div style={{ marginTop: "16px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "8px", padding: "20px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                <h3 style={{ margin: 0 }}>Revisions for {selectedDaySessions.date.toLocaleDateString()}</h3>
-                <button style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "16px" }} onClick={() => setSelectedDaySessions(null)}>✕</button>
+                )}
               </div>
-              {selectedDaySessions.sessions.length === 0 ? (
-                <p style={{ color: "var(--muted)", margin: 0 }}>No sessions scheduled for this day.</p>
-              ) : (
-                <div style={{ display: "grid", gap: "10px" }}>
-                  {selectedDaySessions.sessions.map((session) => (
-                    <div
-                      key={session._id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "10px 14px",
-                        background: "var(--surface-2)",
-                        border: "1px solid var(--line)",
-                        borderRadius: "6px"
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <input
-                          type="checkbox"
-                          checked={session.status === "completed"}
-                          onChange={() => toggleComplete(session._id, session.status)}
-                          style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "var(--brand)" }}
-                        />
-                        <div style={{ textDecoration: session.status === "completed" ? "line-through" : "none", color: session.status === "completed" ? "var(--muted)" : "var(--ink)" }}>
-                          <strong style={{ fontSize: "14px" }}>{session.title}</strong>
-                          <span style={{ fontSize: "11px", display: "block", color: "var(--muted)" }}>
-                            {session.pattern ? `${session.focusTopic} - ${session.pattern}` : session.focusTopic}
-                          </span>
-                        </div>
-                      </div>
-                      <Badge tone={session.status === "completed" ? "good" : "info"}>{session.status}</Badge>
+            );
+          })}
+        </div>
+      </Panel>
+
+      {/* Selected Day Checklist overlay (Also Full Width) */}
+      {selectedDaySessions && (
+        <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "8px", padding: "20px" }}>
+          <div style={{ display: "flex", justifycontent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <h3 style={{ margin: 0 }}>Revisions for {selectedDaySessions.date.toLocaleDateString()}</h3>
+            <button style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "16px", marginLeft: "auto" }} onClick={() => setSelectedDaySessions(null)}>✕</button>
+          </div>
+          {selectedDaySessions.sessions.length === 0 ? (
+            <p style={{ color: "var(--muted)", margin: 0 }}>No sessions scheduled for this day.</p>
+          ) : (
+            <div style={{ display: "grid", gap: "10px" }}>
+              {selectedDaySessions.sessions.map((session) => (
+                <div
+                  key={session._id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px",
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--line)",
+                    borderRadius: "6px"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <input
+                      type="checkbox"
+                      checked={session.status === "completed"}
+                      onChange={() => toggleComplete(session._id, session.status)}
+                      style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "var(--brand)" }}
+                    />
+                    <div style={{ textDecoration: session.status === "completed" ? "line-through" : "none", color: session.status === "completed" ? "var(--muted)" : "var(--ink)" }}>
+                      <strong style={{ fontSize: "14px" }}>{session.title}</strong>
+                      <span style={{ fontSize: "11px", display: "block", color: "var(--muted)" }}>
+                        {session.pattern ? `${session.focusTopic} - ${session.pattern}` : session.focusTopic}
+                      </span>
                     </div>
-                  ))}
+                  </div>
+                  <Badge tone={session.status === "completed" ? "good" : "info"}>{session.status}</Badge>
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* Schedule Form and Pattern Scores side-by-side below calendar */}
+      <div className="grid two">
+        {/* Spaced Repetition Form */}
+        <Panel title="Schedule Spaced Repetitions">
+          <form className="form-grid" onSubmit={scheduleCustom} style={{ display: "grid", gap: "14px" }}>
+            <div style={{ gridColumn: "1 / -1", display: "grid", gap: "12px" }}>
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Select Topic</label>
+                <Select name="topic" options={topics} placeholder="Topic" />
+              </div>
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Pattern Name (optional)</label>
+                <input name="pattern" placeholder="e.g. Two Pointers" />
+              </div>
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Solved Count</label>
+                <input name="solvedCount" type="number" min="0" placeholder="e.g. 10" defaultValue="0" />
+              </div>
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Spaced Repetition Days Schedule</label>
+                <input name="scheduleDays" placeholder="e.g. 2,4,5,6,7" defaultValue="2,4,5,6,7" required />
+                <small style={{ color: "var(--muted)", fontSize: "11px", marginTop: "4px", display: "block" }}>
+                  Comma-separated day offsets from today.
+                </small>
+              </div>
+            </div>
+            {error && <p className="error" style={{ gridColumn: "1 / -1" }}>{error}</p>}
+            <button className="primary-action" style={{ gridColumn: "1 / -1" }}>Create Schedule</button>
+          </form>
+        </Panel>
+
+        {/* Pattern Wise Revision Score */}
+        <Panel title="Pattern Completion Scores">
+          <div className="card-list compact" style={{ maxHeight: "310px", overflowY: "auto", paddingRight: "4px" }}>
+            {Object.keys(patternScores).length === 0 ? (
+              <Empty text="No scheduled patterns to score yet." />
+            ) : (
+              Object.entries(patternScores).map(([name, data]) => {
+                const rate = Math.round((data.completed / data.scheduled) * 100);
+                return (
+                  <div key={name} style={{ display: "flex", flexDirection: "column", gap: "6px", borderBottom: "1px solid var(--line)", paddingBottom: "8px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                      <strong>{name}</strong>
+                      <span>{data.completed}/{data.scheduled} ({rate}%)</span>
+                    </div>
+                    <div className="bar-track">
+                      <div className="bar-fill" style={{ width: `${rate}%`, background: rate >= 70 ? "var(--good)" : rate >= 40 ? "var(--warn)" : "var(--brand)" }} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </Panel>
       </div>
     </section>
   );

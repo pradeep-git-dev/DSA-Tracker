@@ -22,16 +22,16 @@ router.get(
 
 const customRevisionSchema = z.object({
   topic: z.string().min(2).max(100),
-  pattern: z.string().min(2).max(100).optional().default(""),
+  pattern: z.string().max(100).optional().default(""),
   solvedCount: z.coerce.number().optional().default(0),
-  scheduleDays: z.string().regex(/^(\d+,)*\d+$/)
+  scheduleDays: z.string().regex(/^(\s*\d+\s*,\s*)*\d+\s*$/)
 });
 
 router.post(
   "/",
   asyncHandler(async (req, res) => {
     const input = customRevisionSchema.parse(req.body);
-    const daysArr = input.scheduleDays.split(",").map(Number);
+    const daysArr = input.scheduleDays.replace(/\s+/g, "").split(",").map(Number);
     const created = [];
 
     for (const days of daysArr) {

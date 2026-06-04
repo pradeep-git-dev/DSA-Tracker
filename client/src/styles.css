@@ -16,18 +16,18 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #09090b;
-  --surface: #18181b;
-  --surface-2: #27272a;
+  --bg: #030303;
+  --surface: #0a0a0c;
+  --surface-2: #121214;
   --ink: #ffffff;
   --muted: #a1a1aa;
-  --line: #27272a;
+  --line: #1c1c1f;
   --brand: #ef4444;
   --brand-2: #ffffff;
   --good: #22c55e;
   --warn: #f97316;
   --danger: #ef4444;
-  --shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
 }
 
 * {
