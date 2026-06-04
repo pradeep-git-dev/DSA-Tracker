@@ -736,90 +736,243 @@ function Mistakes({ dashboard, api, onChanged }) {
 }
 
 function Revisions({ dashboard, api, onChanged }) {
-  async function generate() {
-    await api("/api/revisions/generate", { method: "POST" });
-    await onChanged("Revision plan regenerated from live weak signals.");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [error, setError] = useState("");
+  const [selectedDaySessions, setSelectedDaySessions] = useState(null);
+
+  async function scheduleCustom(event) {
+    event.preventDefault();
+    setError("");
+    const form = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(form);
+    try {
+      await api("/api/revisions", { method: "POST", body: JSON.stringify(payload) });
+      event.currentTarget.reset();
+      await onChanged("Custom spaced repetition schedule created.");
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   async function complete(id) {
     await api(`/api/revisions/${id}/complete`, {
       method: "PATCH",
-      body: JSON.stringify({ reflection: "Completed from dashboard." })
+      body: JSON.stringify({ reflection: "Completed from calendar." })
     });
     await onChanged("Revision session completed.");
   }
 
+  // Month navigation helpers
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const prevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+  const nextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
+  // Calendar calculations
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayIndex = new Date(year, month, 1).getDay();
+
+  const daysGrid = [];
+  // Padding cells
+  for (let i = 0; i < firstDayIndex; i++) {
+    daysGrid.push({ day: null, isPadding: true });
+  }
+  // Days of month cells
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dDate = new Date(year, month, d);
+    const daySessions = (dashboard.revisions || []).filter((session) => {
+      const sDate = new Date(session.scheduledFor);
+      return sDate.getDate() === d && sDate.getMonth() === month && sDate.getFullYear() === year;
+    });
+    daysGrid.push({ day: d, date: dDate, sessions: daySessions });
+  }
+
   return (
-    <section className="stack">
-      <Panel title="Revision Sessions" action={<button onClick={generate}>Generate plan</button>}>
-        <div className="card-list">
-          {dashboard.revisions.length === 0 && <Empty text="Generate your first revision plan after syncing LeetCode or logging mistakes." />}
-          {dashboard.revisions.map((session) => (
-            <article className="item-card" key={session._id}>
-              <header>
-                <div>
-                  <strong>{session.title}</strong>
-                  <span>{new Date(session.scheduledFor).toLocaleDateString()} - {session.durationMinutes} min</span>
-                </div>
-                <Badge tone={session.status === "completed" ? "good" : "info"}>{session.status}</Badge>
-              </header>
-              <p>{session.plan}</p>
-              {session.status === "scheduled" && <button onClick={() => complete(session._id)}>Mark complete</button>}
-            </article>
-          ))}
+    <section className="grid two">
+      <Panel title="Schedule Spaced Repetitions">
+        <form className="form-grid" onSubmit={scheduleCustom} style={{ display: "grid", gap: "14px" }}>
+          <div style={{ gridColumn: "1 / -1", display: "grid", gap: "12px" }}>
+            <div>
+              <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Select Topic</label>
+              <Select name="topic" options={topics} placeholder="Topic" />
+            </div>
+            <div>
+              <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Pattern Name (optional)</label>
+              <input name="pattern" placeholder="e.g. Two Pointers" />
+            </div>
+            <div>
+              <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Solved Count</label>
+              <input name="solvedCount" type="number" min="0" placeholder="e.g. 10" defaultValue="0" />
+            </div>
+            <div>
+              <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "4px" }}>Spaced Repetition Days Schedule</label>
+              <input name="scheduleDays" placeholder="e.g. 2,4,5,6,7" defaultValue="2,4,5,6,7" required />
+              <small style={{ color: "var(--muted)", fontSize: "11px", marginTop: "4px", display: "block" }}>
+                Comma-separated day offsets from today for scheduled revision tasks.
+              </small>
+            </div>
+          </div>
+          {error && <p className="error" style={{ gridColumn: "1 / -1" }}>{error}</p>}
+          <button className="primary-action" style={{ gridColumn: "1 / -1" }}>Create Schedule</button>
+        </form>
+
+        {selectedDaySessions && (
+          <div style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid var(--line)" }}>
+            <h3>Revisions for {selectedDaySessions.date.toLocaleDateString()}</h3>
+            {selectedDaySessions.sessions.length === 0 ? (
+              <p style={{ color: "var(--muted)" }}>No tasks scheduled.</p>
+            ) : (
+              <div className="card-list" style={{ marginTop: "12px" }}>
+                {selectedDaySessions.sessions.map((session) => (
+                  <article className="item-card" key={session._id}>
+                    <header>
+                      <div>
+                        <strong>{session.title}</strong>
+                        <span style={{ fontSize: "11px", display: "block", color: "var(--muted)" }}>
+                          {session.pattern ? `${session.focusTopic} - ${session.pattern}` : session.focusTopic}
+                        </span>
+                      </div>
+                      <Badge tone={session.status === "completed" ? "good" : "info"}>{session.status}</Badge>
+                    </header>
+                    <p style={{ fontSize: "13px", margin: "8px 0" }}>{session.plan}</p>
+                    {session.status === "scheduled" && (
+                      <button style={{ background: "var(--brand)", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "4px", marginTop: "8px", alignSelf: "flex-start", cursor: "pointer" }} onClick={() => {
+                        complete(session._id);
+                        setSelectedDaySessions(null);
+                      }}>
+                        Mark complete
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Panel>
+
+      <Panel title="Revision Calendar" action={
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={{ border: "1px solid var(--line)", background: "var(--surface)", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }} onClick={prevMonth}>&lt;</button>
+          <strong style={{ fontSize: "14px", minWidth: "120px", textAlign: "center" }}>{monthNames[month]} {year}</strong>
+          <button style={{ border: "1px solid var(--line)", background: "var(--surface)", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }} onClick={nextMonth}>&gt;</button>
+        </div>
+      }>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", textAlign: "center", fontWeight: "700", fontSize: "12px", marginBottom: "8px" }}>
+          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", gridAutoRows: "minmax(60px, auto)" }}>
+          {daysGrid.map((cell, idx) => {
+            if (cell.isPadding) {
+              return <div key={`pad-${idx}`} style={{ background: "var(--surface-2)", opacity: 0.3, borderRadius: "4px" }} />;
+            }
+            const hasSessions = cell.sessions.length > 0;
+            return (
+              <div
+                key={`day-${cell.day}`}
+                onClick={() => setSelectedDaySessions(cell)}
+                style={{
+                  background: hasSessions ? "rgba(239, 68, 68, 0.05)" : "var(--surface-2)",
+                  border: hasSessions ? "1px solid var(--brand)" : "1px solid transparent",
+                  borderRadius: "4px",
+                  padding: "4px",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  transition: "background 0.2s"
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = hasSessions ? "rgba(239, 68, 68, 0.05)" : "var(--surface-2)"; }}
+              >
+                <span style={{ fontSize: "11px", fontWeight: "bold", color: "var(--ink)" }}>{cell.day}</span>
+                {hasSessions && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "2px", marginTop: "4px" }}>
+                    {cell.sessions.map((s) => (
+                      <span
+                        key={s._id}
+                        title={s.title}
+                        style={{
+                          fontSize: "8px",
+                          background: s.status === "completed" ? "var(--good)" : "var(--brand)",
+                          color: "#fff",
+                          padding: "2px 4px",
+                          borderRadius: "2px",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          width: "100%",
+                          textAlign: "center"
+                        }}
+                      >
+                        {s.pattern || s.focusTopic}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </Panel>
     </section>
   );
 }
 
-function Patterns({ dashboard, api, onChanged }) {
-  async function savePattern(event) {
-    event.preventDefault();
-    const payload = Object.fromEntries(new FormData(event.currentTarget));
-    await api("/api/patterns", { method: "PUT", body: JSON.stringify(payload) });
-    event.currentTarget.reset();
-    await onChanged("Pattern progress updated.");
-  }
+function Patterns({ dashboard }) {
+  const insights = dashboard.topicInsights || [];
 
   return (
     <section className="grid two">
-      <Panel title="Update Pattern">
-        <form className="form-grid" onSubmit={savePattern}>
-          <Select name="pattern" options={patterns} placeholder="Pattern" />
-          <Select name="topic" options={topics} placeholder="Topic" />
-          <select name="status" defaultValue="learning">
-            <option value="not-started">Not started</option>
-            <option value="learning">Learning</option>
-            <option value="practicing">Practicing</option>
-            <option value="complete">Complete</option>
-          </select>
-          <input name="confidence" type="number" min="0" max="100" placeholder="Confidence 0-100" />
-          <input name="solvedCount" type="number" min="0" placeholder="Solved count" />
-          <button className="primary-action">Save pattern</button>
-        </form>
-      </Panel>
-      <Panel title="Pattern Progress">
-        <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={dashboard.patterns}>
+      <Panel title="LeetCode Pattern Strength">
+        {insights.length === 0 ? (
+          <Empty text="Sync your LeetCode profile to visualize pattern mastery." />
+        ) : (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={insights}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="pattern" />
+              <XAxis dataKey="topic" tick={{ fontSize: 9 }} interval={0} angle={-30} textAnchor="end" height={60} />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="confidence" fill="var(--brand)" />
+              <Bar dataKey="strength" fill="var(--brand)" name="Mastery %" />
             </BarChart>
-        </ResponsiveContainer>
-        <div className="card-list compact">
-          {dashboard.patterns.map((pattern) => (
-            <article className="item-card" key={pattern._id}>
-              <header>
-                <strong>{pattern.pattern}</strong>
-                <Badge tone={pattern.status === "complete" ? "good" : "info"}>{pattern.status}</Badge>
-              </header>
-              <span>{pattern.topic} - confidence {pattern.confidence}% - solved {pattern.solvedCount}</span>
-            </article>
-          ))}
-        </div>
+          </ResponsiveContainer>
+        )}
+      </Panel>
+
+      <Panel title="LeetCode Topic Insights">
+        {insights.length === 0 ? (
+          <Empty text="Sync your LeetCode profile to view topic analytics." />
+        ) : (
+          <div className="card-list compact" style={{ maxHeight: "320px", overflowY: "auto", paddingRight: "4px" }}>
+            {insights.map((item) => (
+              <article className="item-card" key={item.topic}>
+                <header>
+                  <strong>{item.topic}</strong>
+                  <Badge tone={item.strength >= 70 ? "good" : item.strength >= 40 ? "warn" : "danger"}>
+                    {item.strength}% Strength
+                  </Badge>
+                </header>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
+                  <span>Total Solved: {item.solved}</span>
+                  <span>E: {item.easy} | M: {item.medium} | H: {item.hard}</span>
+                </div>
+                <div className="bar-track" style={{ marginTop: "8px" }}>
+                  <div className="bar-fill" style={{ width: `${item.strength}%`, background: "var(--brand)" }} />
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </Panel>
     </section>
   );

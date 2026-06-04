@@ -20,7 +20,40 @@ router.get(
   })
 );
 
+const customRevisionSchema = z.object({
+  topic: z.string().min(2).max(100),
+  pattern: z.string().min(2).max(100).optional().default(""),
+  solvedCount: z.coerce.number().optional().default(0),
+  scheduleDays: z.string().regex(/^(\d+,)*\d+$/)
+});
+
 router.post(
+  "/",
+  asyncHandler(async (req, res) => {
+    const input = customRevisionSchema.parse(req.body);
+    const daysArr = input.scheduleDays.split(",").map(Number);
+    const created = [];
+
+    for (const days of daysArr) {
+      const scheduledFor = new Date();
+      scheduledFor.setDate(scheduledFor.getDate() + days);
+
+      created.push(
+        await RevisionSession.create({
+          user: req.user._id,
+          title: `${input.pattern || input.topic} Revision`,
+          focusTopic: input.topic,
+          pattern: input.pattern || "",
+          scheduledFor,
+          durationMinutes: 45,
+          plan: `Spaced repetition drill for ${input.pattern || input.topic} (solved ${input.solvedCount} problems). Schedule point: Day ${days}.`
+        })
+      );
+    }
+
+    res.status(201).json({ revisions: created });
+  })
+);
   "/generate",
   asyncHandler(async (req, res) => {
     const dashboard = await buildDashboard(req.user);
