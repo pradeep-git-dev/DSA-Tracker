@@ -663,11 +663,12 @@ function Mistakes({ dashboard, api, onChanged }) {
   async function addMistake(event) {
     event.preventDefault();
     setError("");
-    const form = new FormData(event.currentTarget);
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
     const payload = Object.fromEntries(form);
     try {
       await api("/api/mistakes", { method: "POST", body: JSON.stringify(payload) });
-      event.currentTarget.reset();
+      formEl.reset();
       await onChanged("Mistake recorded and revision pressure recalculated.");
     } catch (err) {
       setError(err.message);
@@ -915,7 +916,7 @@ function Revisions({ dashboard, api, onChanged }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "6px", textAlign: "center", fontWeight: "700", fontSize: "12px", marginBottom: "8px", color: "var(--muted)" }}>
           <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px", gridAutoRows: "minmax(85px, auto)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px", gridAutoRows: "minmax(120px, auto)" }}>
           {daysGrid.map((cell, idx) => {
             if (cell.isPadding) {
               return <div key={`pad-${idx}`} style={{ background: "var(--surface-2)", opacity: 0.15, borderRadius: "6px" }} />;

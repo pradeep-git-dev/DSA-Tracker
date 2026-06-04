@@ -12,7 +12,7 @@ const mistakeSchema = z.object({
   problemTitle: z.string().min(2).max(180),
   problemSlug: z.string().max(160).optional().default(""),
   topic: z.string().min(2).max(80),
-  pattern: z.string().min(2).max(100),
+  pattern: z.string().max(100).optional().default("General"),
   mistakeType: z.enum(["concept", "edge-case", "implementation", "complexity", "pattern-choice", "dry-run"]),
   rootCause: z.string().min(5).max(900),
   correction: z.string().max(900).optional().default(""),

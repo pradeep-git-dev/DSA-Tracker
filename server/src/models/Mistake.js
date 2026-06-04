@@ -27,7 +27,7 @@ const mistakeSchema = new mongoose.Schema(
     },
     pattern: {
       type: String,
-      required: true,
+      default: "General",
       trim: true,
       maxlength: 100
     },
