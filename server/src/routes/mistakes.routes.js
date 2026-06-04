@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middleware/auth.js";
 import { Mistake } from "../models/Mistake.js";
+import { TopicProficiency } from "../models/TopicProficiency.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -52,18 +53,67 @@ router.patch(
 router.post(
   "/:id/review",
   asyncHandler(async (req, res) => {
-    const body = z.object({ resolved: z.boolean().optional().default(false), note: z.string().max(900).optional() }).parse(req.body);
+    const body = z.object({
+      resolved: z.boolean().optional().default(false),
+      rating: z.enum(["failed", "hint", "easy"]).optional().default("hint"),
+      note: z.string().max(900).optional()
+    }).parse(req.body);
+
     const mistake = await Mistake.findOne({ _id: req.params.id, user: req.user._id });
     if (!mistake) throw new ApiError(404, "Mistake not found.");
 
-    mistake.reviewCount += 1;
+    // Fetch or create user topic proficiency
+    let prof = await TopicProficiency.findOne({ user: req.user._id, topic: mistake.topic });
+    if (!prof) {
+      prof = new TopicProficiency({ user: req.user._id, topic: mistake.topic, score: 0.5 });
+    }
+
+    const rating = body.rating;
+    const q = { failed: 1, hint: 3, easy: 5 }[rating];
+
+    // Adjust topic proficiency based on user performance
+    if (q === 5) {
+      prof.score = Math.min(1.0, prof.score + 0.05);
+    } else if (q === 1) {
+      prof.score = Math.max(0.0, prof.score - 0.10);
+    }
+    await prof.save();
+
+    // Adjust SM-2 Easiness Factor (EF)
+    const newEF = mistake.easinessFactor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+    mistake.easinessFactor = Math.max(1.3, newEF);
+
+    if (q < 3) {
+      mistake.reviewCount = 1;
+    } else {
+      mistake.reviewCount += 1;
+    }
+
+    // Apply Weakness Priority Multiplier: 0.5 for weakest (0.0), 1.0 for mastered (1.0)
+    const priorityMultiplier = 0.5 + (0.5 * prof.score);
+
+    // Calculate base interval
+    let baseInterval = 1;
+    if (mistake.reviewCount === 2) {
+      baseInterval = 6;
+    } else if (mistake.reviewCount > 2) {
+      baseInterval = Math.round((mistake.reviewCount - 1) * mistake.easinessFactor);
+    }
+
+    const severityPull = Math.max(0, 5 - mistake.severity);
+    const adaptedInterval = Math.max(1, Math.round((baseInterval - severityPull) * priorityMultiplier));
+
+    const nextReviewAt = new Date();
+    nextReviewAt.setDate(nextReviewAt.getDate() + adaptedInterval);
+
     mistake.lastReviewedAt = new Date();
     mistake.status = body.resolved ? "resolved" : "reviewing";
-    mistake.nextReviewAt = body.resolved ? undefined : nextReviewDate(mistake.reviewCount, mistake.severity);
+    mistake.nextReviewAt = body.resolved ? undefined : nextReviewAt;
+
     if (body.note) mistake.correction = `${mistake.correction || ""}\n${body.note}`.trim();
     await mistake.save();
 
-    res.json({ mistake });
+    res.json({ mistake, topicProficiency: prof.score });
   })
 );
 
@@ -75,14 +125,5 @@ router.delete(
     res.status(204).send();
   })
 );
-
-function nextReviewDate(reviewCount, severity) {
-  const intervals = [1, 3, 7, 14, 30, 60];
-  const severityPull = Math.max(0, 5 - severity);
-  const days = Math.max(1, intervals[Math.min(reviewCount, intervals.length - 1)] - severityPull);
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date;
-}
 
 export default router;

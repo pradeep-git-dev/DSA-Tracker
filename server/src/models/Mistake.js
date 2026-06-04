@@ -63,6 +63,10 @@ const mistakeSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    easinessFactor: {
+      type: Number,
+      default: 2.5
+    },
     nextReviewAt: {
       type: Date,
       index: true

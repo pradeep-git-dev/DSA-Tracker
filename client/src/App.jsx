@@ -70,12 +70,27 @@ const patterns = [
 export default function App() {
   const { user, loading } = useAuth();
   const [authMode, setAuthMode] = useState(null); // 'login' | 'register' | null
+  const [theme, setTheme] = useState("light");
+
+  useEffect(() => {
+    if (user?.theme) {
+      setTheme(user.theme);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }
 
   if (loading) return <Splash />;
   if (!user) {
     return (
       <>
-        <LandingPage onAuth={(mode) => setAuthMode(mode)} />
+        <LandingPage onAuth={(mode) => setAuthMode(mode)} theme={theme} toggleTheme={toggleTheme} />
         {authMode && (
           <AuthModal mode={authMode} setMode={setAuthMode} onClose={() => setAuthMode(null)} />
         )}
@@ -95,7 +110,7 @@ function Splash() {
   );
 }
 
-function LandingPage({ onAuth }) {
+function LandingPage({ onAuth, theme, toggleTheme }) {
   return (
     <div className="landing-wrapper">
       <header className="landing-header">
@@ -105,6 +120,9 @@ function LandingPage({ onAuth }) {
           <a href="#about">About</a>
         </nav>
         <div className="landing-auth-buttons">
+          <button className="landing-btn-text" onClick={toggleTheme} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <button className="landing-btn-text" onClick={() => onAuth("login")}>Login</button>
           <button className="landing-btn-solid" onClick={() => onAuth("register")}>Sign Up</button>
         </div>
@@ -652,12 +670,12 @@ function Mistakes({ dashboard, api, onChanged }) {
     }
   }
 
-  async function review(id, resolved) {
+  async function review(id, resolved, rating = "hint") {
     await api(`/api/mistakes/${id}/review`, {
       method: "POST",
-      body: JSON.stringify({ resolved })
+      body: JSON.stringify({ resolved, rating })
     });
-    await onChanged(resolved ? "Mistake resolved." : "Mistake reviewed.");
+    await onChanged(resolved ? "Mistake resolved." : `Mistake reviewed: ${rating}`);
   }
 
   return (
@@ -703,9 +721,11 @@ function Mistakes({ dashboard, api, onChanged }) {
                 <Badge tone={mistake.status === "resolved" ? "good" : "warn"}>{mistake.status}</Badge>
               </header>
               <p>{mistake.rootCause}</p>
-              <div className="actions">
-                <button onClick={() => review(mistake._id, false)}>Reviewed</button>
-                <button onClick={() => review(mistake._id, true)}>Resolve</button>
+              <div className="actions" style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px" }}>
+                <button style={{ background: "var(--danger)", color: "#fff", fontSize: "12px", border: "none", padding: "6px 12px", borderRadius: "4px" }} onClick={() => review(mistake._id, false, "failed")}>Failed</button>
+                <button style={{ background: "var(--warn)", color: "#fff", fontSize: "12px", border: "none", padding: "6px 12px", borderRadius: "4px" }} onClick={() => review(mistake._id, false, "hint")}>Hint Used</button>
+                <button style={{ background: "var(--good)", color: "#fff", fontSize: "12px", border: "none", padding: "6px 12px", borderRadius: "4px" }} onClick={() => review(mistake._id, false, "easy")}>Easy Solve</button>
+                <button style={{ background: "var(--brand)", color: "#fff", fontSize: "12px", border: "none", padding: "6px 12px", borderRadius: "4px" }} onClick={() => review(mistake._id, true, "easy")}>Resolve</button>
               </div>
             </article>
           ))}
