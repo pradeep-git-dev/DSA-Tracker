@@ -407,6 +407,22 @@ function Workspace() {
   const [view, setView] = useState("dashboard");
   const [status, setStatus] = useState("");
   const [theme, setTheme] = useState(user.theme || "light");
+  const [manuallySolvedSlugs, setManuallySolvedSlugs] = useState(() => {
+    try {
+      const saved = localStorage.getItem("dsa_tracker_solved_slugs");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleSolvedSlug = (slug) => {
+    setManuallySolvedSlugs((prev) => {
+      const next = prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug];
+      localStorage.setItem("dsa_tracker_solved_slugs", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const loadDashboard = async () => {
     const payload = await api("/api/profile/dashboard");
@@ -507,12 +523,14 @@ function Workspace() {
                 dashboard={dashboard}
                 onAnalyze={runAnalysis}
                 onRefresh={() => refreshDashboard("Dashboard refreshed.")}
+                manuallySolvedSlugs={manuallySolvedSlugs}
+                toggleSolvedSlug={toggleSolvedSlug}
               />
             )}
             {view === "analysis" && <Analysis dashboard={dashboard} onAnalyze={runAnalysis} />}
             {view === "mistakes" && <Mistakes dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
             {view === "revisions" && <Revisions dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
-            {view === "patterns" && <Patterns dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
+            {view === "patterns" && <Patterns dashboard={dashboard} api={api} onChanged={refreshDashboard} manuallySolvedSlugs={manuallySolvedSlugs} toggleSolvedSlug={toggleSolvedSlug} />}
             {view === "profile" && <Profile dashboard={dashboard} />}
           </>
         )}
@@ -552,7 +570,7 @@ function LeetcodeSync({ current, onSync }) {
   );
 }
 
-function Dashboard({ dashboard, onRefresh, onAnalyze }) {
+function Dashboard({ dashboard, onRefresh, onAnalyze, manuallySolvedSlugs, toggleSolvedSlug }) {
   const { metrics, attemptStats, topicInsights, uncoveredTopics, recommendations, learningCurve } = dashboard;
   const accuracy = metrics.submissions.all ? Math.round((metrics.solved.all / metrics.submissions.all) * 100) : 0;
   const strongest = [...topicInsights].sort((a, b) => b.strength - a.strength).slice(0, 5);
@@ -606,7 +624,7 @@ function Dashboard({ dashboard, onRefresh, onAnalyze }) {
         </Panel>
       </div>
 
-      <Recommendations recommendations={recommendations} dashboard={dashboard} />
+      <Recommendations recommendations={recommendations} dashboard={dashboard} manuallySolvedSlugs={manuallySolvedSlugs} toggleSolvedSlug={toggleSolvedSlug} />
     </section>
   );
 }
@@ -1180,13 +1198,16 @@ function Revisions({ dashboard, api, onChanged }) {
   );
 }
 
-function Patterns({ dashboard }) {
+function Patterns({ dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
+  const [expandedTopic, setExpandedTopic] = useState(null);
+
   const getComparisonData = () => {
     const leetcodeSolvedSlugs = new Set([
       ...(dashboard.leetcode?.recentAccepted || []).map((q) => q.titleSlug),
       ...(dashboard.leetcode?.recentSubmissions || [])
         .filter((q) => q.statusDisplay === "Accepted")
-        .map((q) => q.titleSlug)
+        .map((q) => q.titleSlug),
+      ...manuallySolvedSlugs
     ]);
 
     const topicMap = {};
@@ -1233,6 +1254,14 @@ function Patterns({ dashboard }) {
 
   const insights = getComparisonData();
 
+  const leetcodeSolvedSlugs = new Set([
+    ...(dashboard.leetcode?.recentAccepted || []).map((q) => q.titleSlug),
+    ...(dashboard.leetcode?.recentSubmissions || [])
+      .filter((q) => q.statusDisplay === "Accepted")
+      .map((q) => q.titleSlug),
+    ...manuallySolvedSlugs
+  ]);
+
   return (
     <section className="stack">
       <div className="grid two">
@@ -1260,42 +1289,80 @@ function Patterns({ dashboard }) {
             <Empty text="No data available." />
           ) : (
             <div className="card-list compact" style={{ maxHeight: "360px", overflowY: "auto", paddingRight: "4px" }}>
-              {insights.map((item) => (
-                <article className="item-card" key={item.topic}>
-                  <header>
-                    <strong>{item.topic}</strong>
-                    <Badge tone={item.averageStrength >= 70 ? "good" : item.averageStrength >= 40 ? "warn" : "danger"}>
-                      Avg: {item.averageStrength}% Strength
-                    </Badge>
-                  </header>
-                  
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", marginTop: "8px", fontSize: "11px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                      <span style={{ color: "var(--brand)", fontWeight: "bold" }}>Strivers</span>
-                      <span>{item.striversSolved}/{item.striversTotal} ({item.striversPct}%)</span>
-                      <div className="bar-track" style={{ height: "4px" }}>
-                        <div className="bar-fill" style={{ width: `${item.striversPct}%`, background: "var(--brand)" }} />
-                      </div>
-                    </div>
+              {insights.map((item) => {
+                const isExpanded = expandedTopic === item.topic;
+                const topicQuestions = questionBank.filter((q) => q.topic === item.topic);
+
+                return (
+                  <article className="item-card" key={item.topic} style={{ cursor: "pointer" }} onClick={() => setExpandedTopic(isExpanded ? null : item.topic)}>
+                    <header>
+                      <strong>{item.topic} {isExpanded ? "▼" : "▶"}</strong>
+                      <Badge tone={item.averageStrength >= 70 ? "good" : item.averageStrength >= 40 ? "warn" : "danger"}>
+                        Avg: {item.averageStrength}% Strength
+                      </Badge>
+                    </header>
                     
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                      <span style={{ color: "#f59e0b", fontWeight: "bold" }}>NeetCode</span>
-                      <span>{item.neetcodeSolved}/{item.neetcodeTotal} ({item.neetcodePct}%)</span>
-                      <div className="bar-track" style={{ height: "4px" }}>
-                        <div className="bar-fill" style={{ width: `${item.neetcodePct}%`, background: "#f59e0b" }} />
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", marginTop: "8px", fontSize: "11px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <span style={{ color: "var(--brand)", fontWeight: "bold" }}>Strivers</span>
+                        <span>{item.striversSolved}/{item.striversTotal} ({item.striversPct}%)</span>
+                        <div className="bar-track" style={{ height: "4px" }}>
+                          <div className="bar-fill" style={{ width: `${item.striversPct}%`, background: "var(--brand)" }} />
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <span style={{ color: "#f59e0b", fontWeight: "bold" }}>NeetCode</span>
+                        <span>{item.neetcodeSolved}/{item.neetcodeTotal} ({item.neetcodePct}%)</span>
+                        <div className="bar-track" style={{ height: "4px" }}>
+                          <div className="bar-fill" style={{ width: `${item.neetcodePct}%`, background: "#f59e0b" }} />
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <span style={{ color: "#10b981", fontWeight: "bold" }}>GFG 160</span>
+                        <span>{item.gfg160Solved}/{item.gfg160Total} ({item.gfg160Pct}%)</span>
+                        <div className="bar-track" style={{ height: "4px" }}>
+                          <div className="bar-fill" style={{ width: `${item.gfg160Pct}%`, background: "#10b981" }} />
+                        </div>
                       </div>
                     </div>
-                    
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                      <span style={{ color: "#10b981", fontWeight: "bold" }}>GFG 160</span>
-                      <span>{item.gfg160Solved}/{item.gfg160Total} ({item.gfg160Pct}%)</span>
-                      <div className="bar-track" style={{ height: "4px" }}>
-                        <div className="bar-fill" style={{ width: `${item.gfg160Pct}%`, background: "#10b981" }} />
+
+                    {isExpanded && (
+                      <div style={{ marginTop: "12px", borderTop: "1px solid var(--line)", paddingTop: "10px", display: "flex", flexDirection: "column", gap: "8px" }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ fontSize: "12px", fontWeight: "bold", color: "var(--muted)", marginBottom: "4px" }}>
+                          Questions checklist (Check to mark Solved):
+                        </div>
+                        {topicQuestions.map((q) => {
+                          const solved = leetcodeSolvedSlugs.has(q.slug);
+                          return (
+                            <div key={q.slug} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "6px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={solved}
+                                  onChange={() => toggleSolvedSlug(q.slug)}
+                                  style={{ cursor: "pointer" }}
+                                />
+                                <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noreferrer" style={{ fontSize: "12px", fontWeight: "700", color: "var(--ink)", textDecoration: "none" }}>
+                                  {q.title}
+                                </a>
+                              </div>
+                              <div style={{ display: "flex", gap: "4px" }}>
+                                {q.sheets.map((s) => (
+                                  <Badge key={s} tone={s === "strivers" ? "info" : s === "neetcode" ? "warn" : s === "good"}>
+                                    {s}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  </div>
-                </article>
-              ))}
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
         </Panel>
@@ -1304,7 +1371,7 @@ function Patterns({ dashboard }) {
   );
 }
 
-function Recommendations({ recommendations, dashboard }) {
+function Recommendations({ recommendations, dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
   const [recMode, setRecMode] = useState("mistakes");
 
   const getDynamicRecommendations = () => {
@@ -1312,7 +1379,8 @@ function Recommendations({ recommendations, dashboard }) {
       ...(dashboard.leetcode?.recentAccepted || []).map((q) => q.titleSlug),
       ...(dashboard.leetcode?.recentSubmissions || [])
         .filter((q) => q.statusDisplay === "Accepted")
-        .map((q) => q.titleSlug)
+        .map((q) => q.titleSlug),
+      ...manuallySolvedSlugs
     ]);
 
     const unsolvedQuestions = questionBank.filter((q) => !leetcodeSolvedSlugs.has(q.slug));
