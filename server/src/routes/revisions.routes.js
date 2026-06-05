@@ -119,14 +119,40 @@ router.patch(
 router.patch(
   "/:id",
   asyncHandler(async (req, res) => {
-    const input = z.object({ status: z.enum(["scheduled", "completed", "skipped"]) }).parse(req.body);
+    const input = z.object({
+      status: z.enum(["scheduled", "completed", "skipped"]).optional(),
+      scheduledFor: z.coerce.date().optional(),
+      title: z.string().max(160).optional()
+    }).parse(req.body);
+
+    const update = {};
+    if (input.status) {
+      update.status = input.status;
+      update.completedAt = input.status === "completed" ? new Date() : null;
+    }
+    if (input.scheduledFor) {
+      update.scheduledFor = input.scheduledFor;
+    }
+    if (input.title) {
+      update.title = input.title;
+    }
+
     const revision = await RevisionSession.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
-      { status: input.status, completedAt: input.status === "completed" ? new Date() : null },
+      update,
       { new: true }
     );
     if (!revision) throw new ApiError(404, "Revision session not found.");
     res.json({ revision });
+  })
+);
+
+router.delete(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const result = await RevisionSession.deleteOne({ _id: req.params.id, user: req.user._id });
+    if (!result.deletedCount) throw new ApiError(404, "Revision session not found.");
+    res.status(204).send();
   })
 );
 

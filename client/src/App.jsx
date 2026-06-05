@@ -22,7 +22,9 @@ import {
   Calendar,
   Award,
   Flame,
-  Check
+  Check,
+  Edit3,
+  Trash2
 } from "lucide-react";
 import {
   Area,
@@ -30,6 +32,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -680,6 +683,19 @@ function Analysis({ dashboard, onAnalyze }) {
         </Panel>
       </div>
 
+      {report.leetcodeMistakes && report.leetcodeMistakes.length > 0 && (
+        <Panel title="LeetCode Wrong Submissions (Mistakes Detected)">
+          <div className="card-list">
+            {report.leetcodeMistakes.map((mistake, idx) => (
+              <div key={idx} style={{ padding: "10px 14px", background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: "6px", fontSize: "13px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ color: "var(--danger)" }}>❌</span>
+                <span>{mistake}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
       <Panel title="AI Practice Focus">
         <div className="question-grid">
           {report.practiceFocus.map((item) => (
@@ -787,6 +803,9 @@ function Revisions({ dashboard, api, onChanged }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [error, setError] = useState("");
   const [selectedDaySessions, setSelectedDaySessions] = useState(null);
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState("");
 
   async function scheduleCustom(event) {
     event.preventDefault();
@@ -988,27 +1007,115 @@ function Revisions({ dashboard, api, onChanged }) {
             <p className="selected-day-empty">No sessions scheduled for this day.</p>
           ) : (
             <div className="selected-day-list">
-              {selectedDaySessions.sessions.map((session) => (
-                <div key={session._id} className="selected-day-item">
-                  <div className="selected-day-item-left">
-                    <input
-                      type="checkbox"
-                      checked={session.status === "completed"}
-                      onChange={() => toggleComplete(session._id, session.status)}
-                      className="selected-day-checkbox"
-                    />
-                    <div className="selected-day-info">
-                      <strong className={`selected-day-title ${session.status === "completed" ? "completed" : ""}`}>
-                        {session.title}
-                      </strong>
-                      <span className="selected-day-subtitle">
-                        {session.pattern ? `${session.focusTopic} • ${session.pattern}` : session.focusTopic}
-                      </span>
+              {selectedDaySessions.sessions.map((session) => {
+                const isEditing = editingSessionId === session._id;
+                return (
+                  <div key={session._id} className="selected-day-item" style={{ flexDirection: "column", alignItems: "stretch", gap: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div className="selected-day-item-left" style={{ flex: 1 }}>
+                        <input
+                          type="checkbox"
+                          checked={session.status === "completed"}
+                          onChange={() => toggleComplete(session._id, session.status)}
+                          className="selected-day-checkbox"
+                        />
+                        {isEditing ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%", paddingLeft: "10px" }}>
+                            <input
+                              type="text"
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              placeholder="Session Title"
+                              style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)", width: "100%" }}
+                            />
+                            <input
+                              type="date"
+                              value={editDate}
+                              onChange={(e) => setEditDate(e.target.value)}
+                              style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)", width: "100%" }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="selected-day-info">
+                            <strong className={`selected-day-title ${session.status === "completed" ? "completed" : ""}`}>
+                              {session.title}
+                            </strong>
+                            <span className="selected-day-subtitle">
+                              {session.pattern ? `${session.focusTopic} • ${session.pattern}` : session.focusTopic}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <Badge tone={session.status === "completed" ? "good" : "info"}>{session.status}</Badge>
+                        
+                        {!isEditing && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingSessionId(session._id);
+                                setEditTitle(session.title);
+                                setEditDate(new Date(session.scheduledFor).toISOString().split('T')[0]);
+                              }}
+                              style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", display: "flex", padding: "4px" }}
+                              title="Edit schedule"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (window.confirm("Are you sure you want to delete this revision session?")) {
+                                  try {
+                                    await api(`/api/revisions/${session._id}`, { method: "DELETE" });
+                                    await onChanged("Revision session deleted.");
+                                    setSelectedDaySessions(null);
+                                  } catch (err) {
+                                    setError(err.message);
+                                  }
+                                }
+                              }}
+                              style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", display: "flex", padding: "4px" }}
+                              title="Delete schedule"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
+
+                    {isEditing && (
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", paddingLeft: "32px" }}>
+                        <button
+                          onClick={() => setEditingSessionId(null)}
+                          style={{ padding: "4px 10px", fontSize: "12px", borderRadius: "4px", border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)", cursor: "pointer" }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await api(`/api/revisions/${session._id}`, {
+                                method: "PATCH",
+                                body: JSON.stringify({ title: editTitle, scheduledFor: new Date(editDate) })
+                              });
+                              await onChanged("Revision session updated.");
+                              setEditingSessionId(null);
+                              setSelectedDaySessions(null);
+                            } catch (err) {
+                              setError(err.message);
+                            }
+                          }}
+                          style={{ padding: "4px 10px", fontSize: "12px", borderRadius: "4px", border: "none", background: "var(--brand)", color: "#fff", cursor: "pointer" }}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <Badge tone={session.status === "completed" ? "good" : "info"}>{session.status}</Badge>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1074,9 +1181,7 @@ function Revisions({ dashboard, api, onChanged }) {
 }
 
 function Patterns({ dashboard }) {
-  const [selectedSheet, setSelectedSheet] = useState("all");
-
-  const getSheetInsights = () => {
+  const getComparisonData = () => {
     const leetcodeSolvedSlugs = new Set([
       ...(dashboard.leetcode?.recentAccepted || []).map((q) => q.titleSlug),
       ...(dashboard.leetcode?.recentSubmissions || [])
@@ -1085,89 +1190,109 @@ function Patterns({ dashboard }) {
     ]);
 
     const topicMap = {};
-    const filteredQuestions = selectedSheet === "all"
-      ? questionBank
-      : questionBank.filter((q) => q.sheets.includes(selectedSheet));
-
-    filteredQuestions.forEach((q) => {
+    questionBank.forEach((q) => {
       if (!topicMap[q.topic]) {
-        topicMap[q.topic] = { topic: q.topic, solved: 0, total: 0, easy: 0, medium: 0, hard: 0 };
+        topicMap[q.topic] = {
+          topic: q.topic,
+          strivers: { solved: 0, total: 0 },
+          neetcode: { solved: 0, total: 0 },
+          gfg160: { solved: 0, total: 0 }
+        };
       }
-      topicMap[q.topic].total += 1;
       const isSolved = leetcodeSolvedSlugs.has(q.slug);
-      if (isSolved) {
-        topicMap[q.topic].solved += 1;
-        topicMap[q.topic][q.difficulty.toLowerCase()] += 1;
-      }
+      q.sheets.forEach((sheet) => {
+        if (topicMap[q.topic][sheet]) {
+          topicMap[q.topic][sheet].total += 1;
+          if (isSolved) {
+            topicMap[q.topic][sheet].solved += 1;
+          }
+        }
+      });
     });
 
-    return Object.values(topicMap).map((topic) => {
-      const strength = Math.round((topic.solved / topic.total) * 100);
+    return Object.values(topicMap).map((item) => {
+      const striversPct = item.strivers.total ? Math.round((item.strivers.solved / item.strivers.total) * 100) : 0;
+      const neetcodePct = item.neetcode.total ? Math.round((item.neetcode.solved / item.neetcode.total) * 100) : 0;
+      const gfg160Pct = item.gfg160.total ? Math.round((item.gfg160.solved / item.gfg160.total) * 100) : 0;
+
       return {
-        topic: topic.topic,
-        solved: topic.solved,
-        total: topic.total,
-        easy: topic.easy,
-        medium: topic.medium,
-        hard: topic.hard,
-        strength
+        topic: item.topic,
+        striversSolved: item.strivers.solved,
+        striversTotal: item.strivers.total,
+        striversPct,
+        neetcodeSolved: item.neetcode.solved,
+        neetcodeTotal: item.neetcode.total,
+        neetcodePct,
+        gfg160Solved: item.gfg160.solved,
+        gfg160Total: item.gfg160.total,
+        gfg160Pct,
+        averageStrength: Math.round((striversPct + neetcodePct + gfg160Pct) / 3)
       };
-    }).sort((a, b) => b.strength - a.strength);
+    }).sort((a, b) => b.averageStrength - a.averageStrength);
   };
 
-  const insights = selectedSheet === "all" ? (dashboard.topicInsights || []) : getSheetInsights();
+  const insights = getComparisonData();
 
   return (
     <section className="stack">
-      <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
-        <select
-          value={selectedSheet}
-          onChange={(e) => setSelectedSheet(e.target.value)}
-          style={{ width: "220px", padding: "6px 12px", borderRadius: "6px", border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)", fontWeight: "600" }}
-        >
-          <option value="all">All LeetCode Activity</option>
-          <option value="neetcode">NeetCode Sheet</option>
-          <option value="strivers">Strivers A-Z Sheet</option>
-          <option value="gfg160">GFG 160 Sheet</option>
-        </select>
-      </div>
-
       <div className="grid two">
-        <Panel title="LeetCode Pattern Strength">
+        <Panel title="DSA Sheets Pattern Strength Comparison">
           {insights.length === 0 ? (
-            <Empty text="No data available for this selection." />
+            <Empty text="No data available." />
           ) : (
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={360}>
               <BarChart data={insights}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="topic" tick={{ fontSize: 9 }} interval={0} angle={-30} textAnchor="end" height={60} />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="strength" fill="var(--brand)" name="Mastery %" />
+                <Legend verticalAlign="top" height={36} />
+                <Bar dataKey="striversPct" fill="var(--brand)" name="Strivers A-Z %" />
+                <Bar dataKey="neetcodePct" fill="#f59e0b" name="NeetCode %" />
+                <Bar dataKey="gfg160Pct" fill="#10b981" name="GFG 160 %" />
               </BarChart>
             </ResponsiveContainer>
           )}
         </Panel>
 
-        <Panel title="LeetCode Topic Insights">
+        <Panel title="Detailed Topic Comparison">
           {insights.length === 0 ? (
-            <Empty text="No data available for this selection." />
+            <Empty text="No data available." />
           ) : (
-            <div className="card-list compact" style={{ maxHeight: "320px", overflowY: "auto", paddingRight: "4px" }}>
+            <div className="card-list compact" style={{ maxHeight: "360px", overflowY: "auto", paddingRight: "4px" }}>
               {insights.map((item) => (
                 <article className="item-card" key={item.topic}>
                   <header>
                     <strong>{item.topic}</strong>
-                    <Badge tone={item.strength >= 70 ? "good" : item.strength >= 40 ? "warn" : "danger"}>
-                      {item.strength}% Strength
+                    <Badge tone={item.averageStrength >= 70 ? "good" : item.averageStrength >= 40 ? "warn" : "danger"}>
+                      Avg: {item.averageStrength}% Strength
                     </Badge>
                   </header>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
-                    <span>Solved: {item.solved} {item.total ? `/ ${item.total}` : ""}</span>
-                    <span>E: {item.easy} | M: {item.medium} | H: {item.hard}</span>
-                  </div>
-                  <div className="bar-track" style={{ marginTop: "8px" }}>
-                    <div className="bar-fill" style={{ width: `${item.strength}%`, background: "var(--brand)" }} />
+                  
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", marginTop: "8px", fontSize: "11px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                      <span style={{ color: "var(--brand)", fontWeight: "bold" }}>Strivers</span>
+                      <span>{item.striversSolved}/{item.striversTotal} ({item.striversPct}%)</span>
+                      <div className="bar-track" style={{ height: "4px" }}>
+                        <div className="bar-fill" style={{ width: `${item.striversPct}%`, background: "var(--brand)" }} />
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                      <span style={{ color: "#f59e0b", fontWeight: "bold" }}>NeetCode</span>
+                      <span>{item.neetcodeSolved}/{item.neetcodeTotal} ({item.neetcodePct}%)</span>
+                      <div className="bar-track" style={{ height: "4px" }}>
+                        <div className="bar-fill" style={{ width: `${item.neetcodePct}%`, background: "#f59e0b" }} />
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                      <span style={{ color: "#10b981", fontWeight: "bold" }}>GFG 160</span>
+                      <span>{item.gfg160Solved}/{item.gfg160Total} ({item.gfg160Pct}%)</span>
+                      <div className="bar-track" style={{ height: "4px" }}>
+                        <div className="bar-fill" style={{ width: `${item.gfg160Pct}%`, background: "#10b981" }} />
+                      </div>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -1355,7 +1480,7 @@ function Profile({ dashboard }) {
 
       <Panel title="Activity Heatmap" icon={<Activity size={18} />}>
         <div style={{ padding: "12px", background: "var(--surface-2)", borderRadius: "8px", border: "1px solid var(--line)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: "4px" }}>
+          <div style={{ display: "grid", gridTemplateRows: "repeat(7, 13px)", gridAutoFlow: "column", gap: "4px", justifyContent: "start", overflowX: "auto", paddingBottom: "8px" }}>
             {heatmapData.map((day, index) => {
               const level = Math.min(4, day.count);
               return (
@@ -1363,8 +1488,8 @@ function Profile({ dashboard }) {
                   key={index}
                   title={`${day.date.toLocaleDateString()}: ${day.count} activities`}
                   style={{
-                    width: "100%",
-                    aspectRatio: "1",
+                    width: "13px",
+                    height: "13px",
                     borderRadius: "3px",
                     background: level === 0 
                       ? "var(--surface)" 

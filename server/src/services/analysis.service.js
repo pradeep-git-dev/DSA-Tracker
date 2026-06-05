@@ -4,7 +4,7 @@ import { AnalysisReport } from "../models/AnalysisReport.js";
 const analysisSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["summary", "riskLevel", "confidenceScore", "weakSignals", "mistakeThemes", "revisionStrategy", "practiceFocus"],
+  required: ["summary", "riskLevel", "confidenceScore", "weakSignals", "mistakeThemes", "revisionStrategy", "practiceFocus", "leetcodeMistakes"],
   properties: {
     summary: { type: "string" },
     riskLevel: { type: "string", enum: ["low", "medium", "high"] },
@@ -61,6 +61,10 @@ const analysisSchema = {
           reason: { type: "string" }
         }
       }
+    },
+    leetcodeMistakes: {
+      type: "array",
+      items: { type: "string" }
     }
   }
 };
@@ -200,6 +204,10 @@ function generateRuleAnalysis(signals) {
   const failedRecent = signals.attemptStats.failedRecent || 0;
   const riskLevel = weakSignals.length > 3 || failedRecent > 15 ? "high" : failedRecent > 5 ? "medium" : "low";
 
+  const leetcodeMistakes = (signals.attemptStats?.problemAttempts || [])
+    .filter((p) => p.failed > 0)
+    .map((p) => `${p.title} (${p.failed} wrong attempts)`);
+
   return {
     summary: `The current plan is driven by ${signals.openMistakes.length} open mistakes, ${failedRecent} recent failed LeetCode submissions, and ${signals.topicInsights.length} tracked topic signals.`,
     riskLevel,
@@ -211,6 +219,7 @@ function generateRuleAnalysis(signals) {
       cadence: index < 2 ? "Today and again in 3 days" : "Within 7 days",
       drill: signal.nextAction
     })),
-    practiceFocus
+    practiceFocus,
+    leetcodeMistakes
   };
 }
