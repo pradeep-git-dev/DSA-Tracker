@@ -30,13 +30,13 @@ query dsaProfile($username: String!) {
       }
     }
   }
-  recentAcSubmissionList(username: $username, limit: 50) {
+  recentAcSubmissionList(username: $username, limit: 1000) {
     id
     title
     titleSlug
     timestamp
   }
-  recentSubmissionList(username: $username, limit: 50) {
+  recentSubmissionList(username: $username, limit: 500) {
     id
     title
     titleSlug
@@ -227,6 +227,40 @@ function buildAttemptStats(recentSubmissions, recentQuestions) {
   };
 }
 
+const localQuestionBank = [
+  { slug: "two-sum", title: "Two Sum", topic: "Array", difficulty: "Easy", pattern: "Hashing", sheets: ["strivers", "neetcode", "gfg160"] },
+  { slug: "contains-duplicate", title: "Contains Duplicate", topic: "Array", difficulty: "Easy", pattern: "Hashing", sheets: ["strivers", "neetcode"] },
+  { slug: "product-of-array-except-self", title: "Product of Array Except Self", topic: "Array", difficulty: "Medium", pattern: "Prefix product", sheets: ["strivers", "gfg160"] },
+  { slug: "longest-substring-without-repeating-characters", title: "Longest Substring Without Repeating Characters", topic: "Sliding Window", difficulty: "Medium", pattern: "Variable window", sheets: ["strivers", "neetcode"] },
+  { slug: "minimum-window-substring", title: "Minimum Window Substring", topic: "Sliding Window", difficulty: "Hard", pattern: "Variable window", sheets: ["neetcode"] },
+  { slug: "search-in-rotated-sorted-array", title: "Search in Rotated Sorted Array", topic: "Binary Search", difficulty: "Medium", pattern: "Modified binary search", sheets: ["neetcode"] },
+  { slug: "find-minimum-in-rotated-sorted-array", title: "Find Minimum in Rotated Sorted Array", topic: "Binary Search", difficulty: "Medium", pattern: "Boundary search", sheets: ["neetcode"] },
+  { slug: "merge-intervals", title: "Merge Intervals", topic: "Intervals", difficulty: "Medium", pattern: "Sort and sweep", sheets: ["strivers"] },
+  { slug: "insert-interval", title: "Insert Interval", topic: "Intervals", difficulty: "Medium", pattern: "Merge", sheets: ["neetcode"] },
+  { slug: "valid-parentheses", title: "Valid Parentheses", topic: "Stack", difficulty: "Easy", pattern: "Stack", sheets: ["strivers", "neetcode", "gfg160"] },
+  { slug: "daily-temperatures", title: "Daily Temperatures", topic: "Stack", difficulty: "Medium", pattern: "Monotonic stack", sheets: ["neetcode"] },
+  { slug: "largest-rectangle-in-histogram", title: "Largest Rectangle in Histogram", topic: "Stack", difficulty: "Hard", pattern: "Monotonic stack", sheets: ["strivers"] },
+  { slug: "reverse-linked-list", title: "Reverse Linked List", topic: "Linked List", difficulty: "Easy", pattern: "Pointer reversal", sheets: ["strivers", "neetcode", "gfg160"] },
+  { slug: "merge-two-sorted-lists", title: "Merge Two Sorted Lists", topic: "Linked List", difficulty: "Easy", pattern: "Two pointers", sheets: ["strivers", "gfg160"] },
+  { slug: "binary-tree-level-order-traversal", title: "Binary Tree Level Order Traversal", topic: "Tree", difficulty: "Medium", pattern: "BFS", sheets: ["strivers", "neetcode"] },
+  { slug: "lowest-common-ancestor-of-a-binary-tree", title: "Lowest Common Ancestor of a Binary Tree", topic: "Tree", difficulty: "Medium", pattern: "DFS", sheets: ["strivers"] },
+  { slug: "number-of-islands", title: "Number of Islands", topic: "Graph", difficulty: "Medium", pattern: "DFS/BFS", sheets: ["strivers", "neetcode", "gfg160"] },
+  { slug: "clone-graph", title: "Clone Graph", topic: "Graph", difficulty: "Medium", pattern: "Graph traversal", sheets: ["neetcode"] },
+  { slug: "course-schedule", title: "Course Schedule", topic: "Graph", difficulty: "Medium", pattern: "Topological sort", sheets: ["gfg160"] },
+  { slug: "network-delay-time", title: "Network Delay Time", topic: "Graph", difficulty: "Medium", pattern: "Dijkstra", sheets: ["neetcode"] },
+  { slug: "coin-change", title: "Coin Change", topic: "Dynamic Programming", difficulty: "Medium", pattern: "1D DP", sheets: ["strivers", "neetcode"] },
+  { slug: "longest-increasing-subsequence", title: "Longest Increasing Subsequence", topic: "Dynamic Programming", difficulty: "Medium", pattern: "DP with binary search", sheets: ["strivers"] },
+  { slug: "word-break", title: "Word Break", topic: "Dynamic Programming", difficulty: "Medium", pattern: "String DP", sheets: ["neetcode"] },
+  { slug: "partition-equal-subset-sum", title: "Partition Equal Subset Sum", topic: "Dynamic Programming", difficulty: "Medium", pattern: "Knapsack", sheets: ["strivers"] },
+  { slug: "combination-sum", title: "Combination Sum", topic: "Backtracking", difficulty: "Medium", pattern: "Backtracking", sheets: ["strivers", "gfg160"] },
+  { slug: "subsets", title: "Subsets", topic: "Backtracking", difficulty: "Medium", pattern: "Backtracking", sheets: ["gfg160"] },
+  { slug: "jump-game", title: "Jump Game", topic: "Greedy", difficulty: "Medium", pattern: "Greedy reachability", sheets: ["gfg160"] },
+  { slug: "task-scheduler", title: "Task Scheduler", topic: "Heap (Priority Queue)", difficulty: "Medium", pattern: "Heap", sheets: ["neetcode"] },
+  { slug: "implement-trie-prefix-tree", title: "Implement Trie (Prefix Tree)", topic: "Trie", difficulty: "Medium", pattern: "Trie", sheets: ["neetcode"] },
+  { slug: "number-of-1-bits", title: "Number of 1 Bits", topic: "Bit Manipulation", difficulty: "Easy", pattern: "Bit tricks", sheets: ["neetcode"] },
+  { slug: "accounts-merge", title: "Accounts Merge", topic: "Union Find", difficulty: "Medium", pattern: "Union Find", sheets: ["neetcode"] }
+];
+
 export async function fetchLeetcodeProfile(username) {
   const trimmedUsername = username.trim();
   const data = await leetcodeGraphql(profileQuery, { username: trimmedUsername });
@@ -238,14 +272,32 @@ export async function fetchLeetcodeProfile(username) {
   const uniqueSlugs = [
     ...new Set([
       ...(data.recentAcSubmissionList || []).map((item) => item.titleSlug),
-      ...(data.recentSubmissionList || []).slice(0, 20).map((item) => item.titleSlug)
+      ...(data.recentSubmissionList || []).slice(0, 50).map((item) => item.titleSlug)
     ])
   ];
 
-  const [calendarData, questions] = await Promise.all([
+  const localMap = new Map(localQuestionBank.map((q) => [q.slug, q]));
+  const resolvedQuestions = [];
+  const remoteSlugsToFetch = [];
+
+  for (const slug of uniqueSlugs) {
+    if (localMap.has(slug)) {
+      const q = localMap.get(slug);
+      resolvedQuestions.push({
+        title: q.title,
+        titleSlug: q.slug,
+        difficulty: q.difficulty,
+        topicTags: [{ name: q.topic, slug: q.topic.toLowerCase() }]
+      });
+    } else {
+      remoteSlugsToFetch.push(slug);
+    }
+  }
+
+  const [calendarData, remoteQuestions] = await Promise.all([
     leetcodeGraphql(calendarQuery, { username: trimmedUsername, year: new Date().getFullYear() }).catch(() => null),
     Promise.all(
-      uniqueSlugs.slice(0, 40).map(async (titleSlug) => {
+      remoteSlugsToFetch.slice(0, 40).map(async (titleSlug) => {
         try {
           const questionData = await leetcodeGraphql(questionQuery, { titleSlug });
           return questionData.question;
@@ -256,7 +308,7 @@ export async function fetchLeetcodeProfile(username) {
     )
   ]);
 
-  const cleanQuestions = questions.filter(Boolean);
+  const cleanQuestions = [...resolvedQuestions, ...remoteQuestions.filter(Boolean)];
   const calendar = calendarData?.matchedUser?.userCalendar || {};
   const counts = normalizeCounts(data.matchedUser.submitStatsGlobal);
   const recentSubmissions = data.recentSubmissionList || [];
