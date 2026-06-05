@@ -24,7 +24,16 @@ router.post(
   "/leetcode/sync",
   leetcodeLimiter,
   asyncHandler(async (req, res) => {
-    const { username } = z.object({ username: z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/) }).parse(req.body);
+    const username = req.user.leetcodeUsername;
+    if (!username) {
+      throw new ApiError(400, "No LeetCode username is registered for this account.");
+    }
+
+    const { username: reqUsername } = z.object({ username: z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/) }).parse(req.body);
+    if (reqUsername.toLowerCase() !== username.toLowerCase()) {
+      throw new ApiError(403, `You can only sync your registered LeetCode username: ${username}`);
+    }
+
     const profile = await fetchLeetcodeProfile(username);
 
     const snapshot = await LeetcodeSnapshot.create({
@@ -42,8 +51,7 @@ router.post(
       raw: profile
     });
 
-    await User.findByIdAndUpdate(req.user._id, { leetcodeUsername: profile.username });
-    res.status(201).json({ snapshot, dashboard: await buildDashboard(await User.findById(req.user._id)) });
+    res.status(201).json({ snapshot, dashboard: await buildDashboard(req.user) });
   })
 );
 

@@ -57,18 +57,27 @@ export async function issueTokens(user) {
   return { accessToken, refreshToken };
 }
 
-export async function registerUser({ name, email, password }) {
+export async function registerUser({ name, email, password, leetcodeUsername }) {
   const normalizedEmail = normalizeEmail(email);
   const existing = await User.findOne({ email: normalizedEmail });
   if (existing) {
     throw new ApiError(409, "An account already exists for this email.");
   }
 
+  const normalizedUsername = leetcodeUsername.trim();
+  const existingLeetcode = await User.findOne({
+    leetcodeUsername: { $regex: new RegExp(`^${normalizedUsername}$`, "i") }
+  });
+  if (existingLeetcode) {
+    throw new ApiError(409, "This LeetCode username is already registered to another account.");
+  }
+
   const passwordHash = await bcrypt.hash(password, env.bcryptRounds);
   const user = await User.create({
     name: name.trim(),
     email: normalizedEmail,
-    passwordHash
+    passwordHash,
+    leetcodeUsername: normalizedUsername
   });
 
   const tokens = await issueTokens(user);

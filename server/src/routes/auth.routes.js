@@ -27,7 +27,8 @@ const passwordSchema = z
 const registerSchema = z.object({
   name: z.string().min(2).max(80),
   email: z.string().email(),
-  password: passwordSchema
+  password: passwordSchema,
+  leetcodeUsername: z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/)
 });
 
 const loginSchema = z.object({

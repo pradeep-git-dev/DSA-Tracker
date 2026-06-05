@@ -31,7 +31,7 @@ export async function buildDashboard(user) {
   const [snapshot, mistakes, sessions, patterns, snapshots, latestAnalysis] = await Promise.all([
     LeetcodeSnapshot.findOne({ user: user._id }).sort({ createdAt: -1 }),
     Mistake.find({ user: user._id }).sort({ createdAt: -1 }).limit(100),
-    RevisionSession.find({ user: user._id }).sort({ scheduledFor: 1 }).limit(50),
+    RevisionSession.find({ user: user._id }).sort({ scheduledFor: 1 }),
     PatternProgress.find({ user: user._id }).sort({ confidence: 1 }),
     LeetcodeSnapshot.find({ user: user._id }).sort({ createdAt: 1 }).limit(24),
     AnalysisReport.findOne({ user: user._id }).sort({ createdAt: -1 })

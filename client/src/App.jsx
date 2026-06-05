@@ -335,6 +335,15 @@ function AuthModal({ mode, setMode, onClose }) {
 
           {mode === "register" && <input name="name" placeholder="Full name" minLength={2} required />}
           <input name="email" type="email" placeholder="Email" required />
+          {mode === "register" && (
+            <input 
+              name="leetcodeUsername" 
+              placeholder="LeetCode username" 
+              pattern="^[A-Za-z0-9_-]+$" 
+              title="Only letters, numbers, underscores, and hyphens allowed" 
+              required 
+            />
+          )}
           <input
             name="password"
             type="password"
@@ -907,77 +916,38 @@ function Revisions({ dashboard, api, onChanged }) {
 
       {/* Full-width Calendar */}
       <Panel title="Revision Calendar" action={
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <button style={{ border: "1px solid var(--line)", background: "var(--surface)", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }} onClick={prevMonth}>&lt;</button>
-          <strong style={{ fontSize: "14px", minWidth: "120px", textAlign: "center" }}>{monthNames[month]} {year}</strong>
-          <button style={{ border: "1px solid var(--line)", background: "var(--surface)", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }} onClick={nextMonth}>&gt;</button>
+        <div className="calendar-header-nav">
+          <button className="calendar-nav-btn" onClick={prevMonth}>&lt;</button>
+          <strong className="calendar-month-title">{monthNames[month]} {year}</strong>
+          <button className="calendar-nav-btn" onClick={nextMonth}>&gt;</button>
         </div>
       }>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "6px", textAlign: "center", fontWeight: "700", fontSize: "12px", marginBottom: "8px", color: "var(--muted)" }}>
+        <div className="calendar-weekdays">
           <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px", gridAutoRows: "minmax(120px, auto)" }}>
+        <div className="calendar-grid">
           {daysGrid.map((cell, idx) => {
             if (cell.isPadding) {
-              return <div key={`pad-${idx}`} style={{ background: "var(--surface-2)", opacity: 0.15, borderRadius: "6px" }} />;
+              return <div key={`pad-${idx}`} className="calendar-cell-pad" />;
             }
             const hasSessions = cell.sessions.length > 0;
             return (
               <div
                 key={`day-${cell.day}`}
                 onClick={() => setSelectedDaySessions(cell)}
-                style={{
-                  background: cell.today
-                    ? "rgba(239, 68, 68, 0.15)"
-                    : hasSessions
-                      ? "var(--surface-2)"
-                      : "var(--surface)",
-                  border: cell.today
-                    ? "2.5px solid var(--brand)"
-                    : hasSessions
-                      ? "1px solid var(--line)"
-                      : "1px solid var(--line)",
-                  borderRadius: "6px",
-                  padding: "8px",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  transition: "all 0.2s ease",
-                  boxShadow: hasSessions ? "0 2px 4px rgba(0,0,0,0.02)" : "none",
-                  position: "relative"
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.borderColor = "var(--brand)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "none";
-                  e.currentTarget.style.borderColor = cell.today ? "var(--brand)" : "var(--line)";
-                }}
+                className={`calendar-cell ${cell.today ? "calendar-cell-today" : ""} ${hasSessions ? "calendar-cell-has-sessions" : ""}`}
               >
-                <span style={{ fontSize: "11px", fontWeight: "bold", color: cell.today ? "var(--brand)" : "var(--ink)" }}>
-                  {cell.day} {cell.today && <span style={{ fontSize: "8px", fontWeight: "normal", verticalAlign: "middle" }}>(Today)</span>}
-                </span>
+                <div className="calendar-day-num">
+                  <span>{cell.day}</span>
+                  {cell.today && <span className="calendar-today-badge">Today</span>}
+                </div>
                 {hasSessions && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "2px", marginTop: "4px" }}>
+                  <div className="calendar-sessions-container">
                     {cell.sessions.map((s) => (
                       <span
                         key={s._id}
                         title={`${s.title} (${s.status})`}
-                        style={{
-                          fontSize: "8px",
-                          background: s.status === "completed" ? "var(--good)" : "var(--brand)",
-                          color: "#fff",
-                          padding: "2px 4px",
-                          borderRadius: "3px",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          width: "100%",
-                          textAlign: "center",
-                          fontWeight: "700"
-                        }}
+                        className={`calendar-session-pill ${s.status === "completed" ? "completed" : "scheduled"}`}
                       >
                         {s.pattern || s.focusTopic}
                       </span>
@@ -992,39 +962,30 @@ function Revisions({ dashboard, api, onChanged }) {
 
       {/* Selected Day Checklist overlay (Also Full Width) */}
       {selectedDaySessions && (
-        <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "8px", padding: "20px" }}>
-          <div style={{ display: "flex", justifycontent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-            <h3 style={{ margin: 0 }}>Revisions for {selectedDaySessions.date.toLocaleDateString()}</h3>
-            <button style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "16px", marginLeft: "auto" }} onClick={() => setSelectedDaySessions(null)}>✕</button>
+        <div className="selected-day-panel">
+          <div className="selected-day-header">
+            <h3>Revisions for {selectedDaySessions.date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
+            <button className="selected-day-close" onClick={() => setSelectedDaySessions(null)}>✕</button>
           </div>
           {selectedDaySessions.sessions.length === 0 ? (
-            <p style={{ color: "var(--muted)", margin: 0 }}>No sessions scheduled for this day.</p>
+            <p className="selected-day-empty">No sessions scheduled for this day.</p>
           ) : (
-            <div style={{ display: "grid", gap: "10px" }}>
+            <div className="selected-day-list">
               {selectedDaySessions.sessions.map((session) => (
-                <div
-                  key={session._id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 14px",
-                    background: "var(--surface-2)",
-                    border: "1px solid var(--line)",
-                    borderRadius: "6px"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div key={session._id} className="selected-day-item">
+                  <div className="selected-day-item-left">
                     <input
                       type="checkbox"
                       checked={session.status === "completed"}
                       onChange={() => toggleComplete(session._id, session.status)}
-                      style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "var(--brand)" }}
+                      className="selected-day-checkbox"
                     />
-                    <div style={{ textDecoration: session.status === "completed" ? "line-through" : "none", color: session.status === "completed" ? "var(--muted)" : "var(--ink)" }}>
-                      <strong style={{ fontSize: "14px" }}>{session.title}</strong>
-                      <span style={{ fontSize: "11px", display: "block", color: "var(--muted)" }}>
-                        {session.pattern ? `${session.focusTopic} - ${session.pattern}` : session.focusTopic}
+                    <div className="selected-day-info">
+                      <strong className={`selected-day-title ${session.status === "completed" ? "completed" : ""}`}>
+                        {session.title}
+                      </strong>
+                      <span className="selected-day-subtitle">
+                        {session.pattern ? `${session.focusTopic} • ${session.pattern}` : session.focusTopic}
                       </span>
                     </div>
                   </div>

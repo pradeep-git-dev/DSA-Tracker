@@ -121,7 +121,7 @@ router.patch(
     const input = z.object({ status: z.enum(["scheduled", "completed", "skipped"]) }).parse(req.body);
     const revision = await RevisionSession.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
-      { status: input.status, completedAt: input.status === "completed" ? new Date() : undefined },
+      { status: input.status, completedAt: input.status === "completed" ? new Date() : null },
       { new: true }
     );
     if (!revision) throw new ApiError(404, "Revision session not found.");
