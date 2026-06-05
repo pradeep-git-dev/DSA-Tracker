@@ -1236,14 +1236,35 @@ function Revisions({ dashboard, api, onChanged }) {
 function Patterns({ dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
   const [expandedTopic, setExpandedTopic] = useState(null);
 
+  const getCombinedSolvedSet = () => {
+    const solved = new Set([...manuallySolvedSlugs]);
+    const solvedStats = dashboard.leetcode?.counts?.solved || { easy: 0, medium: 0, hard: 0 };
+    if (solvedStats.easy > 0 || solvedStats.medium > 0 || solvedStats.hard > 0) {
+      let easyCount = 0;
+      let mediumCount = 0;
+      let hardCount = 0;
+      questionBank.forEach((q) => {
+        if (q.difficulty === "Easy" && easyCount < solvedStats.easy) {
+          solved.add(q.slug);
+          easyCount++;
+        } else if (q.difficulty === "Medium" && mediumCount < solvedStats.medium) {
+          solved.add(q.slug);
+          mediumCount++;
+        } else if (q.difficulty === "Hard" && hardCount < solvedStats.hard) {
+          solved.add(q.slug);
+          hardCount++;
+        }
+      });
+    }
+    (dashboard.leetcode?.recentAccepted || []).forEach((q) => solved.add(q.titleSlug));
+    (dashboard.leetcode?.recentSubmissions || [])
+      .filter((q) => q.statusDisplay === "Accepted")
+      .forEach((q) => solved.add(q.titleSlug));
+    return solved;
+  };
+
   const getComparisonData = () => {
-    const leetcodeSolvedSlugs = new Set([
-      ...(dashboard.leetcode?.recentAccepted || []).map((q) => q.titleSlug),
-      ...(dashboard.leetcode?.recentSubmissions || [])
-        .filter((q) => q.statusDisplay === "Accepted")
-        .map((q) => q.titleSlug),
-      ...manuallySolvedSlugs
-    ]);
+    const leetcodeSolvedSlugs = getCombinedSolvedSet();
 
     const topicMap = {};
     questionBank.forEach((q) => {
@@ -1289,13 +1310,7 @@ function Patterns({ dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
 
   const insights = getComparisonData();
 
-  const leetcodeSolvedSlugs = new Set([
-    ...(dashboard.leetcode?.recentAccepted || []).map((q) => q.titleSlug),
-    ...(dashboard.leetcode?.recentSubmissions || [])
-      .filter((q) => q.statusDisplay === "Accepted")
-      .map((q) => q.titleSlug),
-    ...manuallySolvedSlugs
-  ]);
+  const leetcodeSolvedSlugs = getCombinedSolvedSet();
 
   return (
     <section className="stack">

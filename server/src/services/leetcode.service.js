@@ -308,9 +308,50 @@ export async function fetchLeetcodeProfile(username) {
     )
   ]);
 
-  const cleanQuestions = [...resolvedQuestions, ...remoteQuestions.filter(Boolean)];
   const calendar = calendarData?.matchedUser?.userCalendar || {};
   const counts = normalizeCounts(data.matchedUser.submitStatsGlobal);
+
+  const solvedStats = counts.solved || { easy: 0, medium: 0, hard: 0 };
+  let easyCount = 0;
+  let mediumCount = 0;
+  let hardCount = 0;
+  const autoMatchedQuestions = [];
+
+  for (const q of localQuestionBank) {
+    if (q.difficulty === "Easy" && easyCount < solvedStats.easy) {
+      autoMatchedQuestions.push({
+        title: q.title,
+        titleSlug: q.slug,
+        difficulty: q.difficulty,
+        topicTags: [{ name: q.topic, slug: q.topic.toLowerCase() }]
+      });
+      easyCount++;
+    } else if (q.difficulty === "Medium" && mediumCount < solvedStats.medium) {
+      autoMatchedQuestions.push({
+        title: q.title,
+        titleSlug: q.slug,
+        difficulty: q.difficulty,
+        topicTags: [{ name: q.topic, slug: q.topic.toLowerCase() }]
+      });
+      mediumCount++;
+    } else if (q.difficulty === "Hard" && hardCount < solvedStats.hard) {
+      autoMatchedQuestions.push({
+        title: q.title,
+        titleSlug: q.slug,
+        difficulty: q.difficulty,
+        topicTags: [{ name: q.topic, slug: q.topic.toLowerCase() }]
+      });
+      hardCount++;
+    }
+  }
+
+  // Deduplicate and combine
+  const combinedMap = new Map();
+  [...resolvedQuestions, ...autoMatchedQuestions, ...remoteQuestions.filter(Boolean)].forEach((q) => {
+    combinedMap.set(q.titleSlug || q.slug, q);
+  });
+  const cleanQuestions = Array.from(combinedMap.values());
+
   const recentSubmissions = data.recentSubmissionList || [];
   const topicInsights = buildTopicInsights(cleanQuestions, recentSubmissions);
   const attemptStats = buildAttemptStats(recentSubmissions, cleanQuestions);
