@@ -71,6 +71,40 @@ const patterns = [
   "Union Find"
 ];
 
+const questionBank = [
+  { slug: "two-sum", title: "Two Sum", topic: "Array", difficulty: "Easy", pattern: "Hashing", sheets: ["strivers", "neetcode", "gfg160"] },
+  { slug: "contains-duplicate", title: "Contains Duplicate", topic: "Array", difficulty: "Easy", pattern: "Hashing", sheets: ["strivers", "neetcode"] },
+  { slug: "product-of-array-except-self", title: "Product of Array Except Self", topic: "Array", difficulty: "Medium", pattern: "Prefix product", sheets: ["strivers", "gfg160"] },
+  { slug: "longest-substring-without-repeating-characters", title: "Longest Substring Without Repeating Characters", topic: "Sliding Window", difficulty: "Medium", pattern: "Variable window", sheets: ["strivers", "neetcode"] },
+  { slug: "minimum-window-substring", title: "Minimum Window Substring", topic: "Sliding Window", difficulty: "Hard", pattern: "Variable window", sheets: ["neetcode"] },
+  { slug: "search-in-rotated-sorted-array", title: "Search in Rotated Sorted Array", topic: "Binary Search", difficulty: "Medium", pattern: "Modified binary search", sheets: ["neetcode"] },
+  { slug: "find-minimum-in-rotated-sorted-array", title: "Find Minimum in Rotated Sorted Array", topic: "Binary Search", difficulty: "Medium", pattern: "Boundary search", sheets: ["neetcode"] },
+  { slug: "merge-intervals", title: "Merge Intervals", topic: "Intervals", difficulty: "Medium", pattern: "Sort and sweep", sheets: ["strivers"] },
+  { slug: "insert-interval", title: "Insert Interval", topic: "Intervals", difficulty: "Medium", pattern: "Merge", sheets: ["neetcode"] },
+  { slug: "valid-parentheses", title: "Valid Parentheses", topic: "Stack", difficulty: "Easy", pattern: "Stack", sheets: ["strivers", "neetcode", "gfg160"] },
+  { slug: "daily-temperatures", title: "Daily Temperatures", topic: "Stack", difficulty: "Medium", pattern: "Monotonic stack", sheets: ["neetcode"] },
+  { slug: "largest-rectangle-in-histogram", title: "Largest Rectangle in Histogram", topic: "Stack", difficulty: "Hard", pattern: "Monotonic stack", sheets: ["strivers"] },
+  { slug: "reverse-linked-list", title: "Reverse Linked List", topic: "Linked List", difficulty: "Easy", pattern: "Pointer reversal", sheets: ["strivers", "neetcode", "gfg160"] },
+  { slug: "merge-two-sorted-lists", title: "Merge Two Sorted Lists", topic: "Linked List", difficulty: "Easy", pattern: "Two pointers", sheets: ["strivers", "gfg160"] },
+  { slug: "binary-tree-level-order-traversal", title: "Binary Tree Level Order Traversal", topic: "Tree", difficulty: "Medium", pattern: "BFS", sheets: ["strivers", "neetcode"] },
+  { slug: "lowest-common-ancestor-of-a-binary-tree", title: "Lowest Common Ancestor of a Binary Tree", topic: "Tree", difficulty: "Medium", pattern: "DFS", sheets: ["strivers"] },
+  { slug: "number-of-islands", title: "Number of Islands", topic: "Graph", difficulty: "Medium", pattern: "DFS/BFS", sheets: ["strivers", "neetcode", "gfg160"] },
+  { slug: "clone-graph", title: "Clone Graph", topic: "Graph", difficulty: "Medium", pattern: "Graph traversal", sheets: ["neetcode"] },
+  { slug: "course-schedule", title: "Course Schedule", topic: "Graph", difficulty: "Medium", pattern: "Topological sort", sheets: ["gfg160"] },
+  { slug: "network-delay-time", title: "Network Delay Time", topic: "Graph", difficulty: "Medium", pattern: "Dijkstra", sheets: ["neetcode"] },
+  { slug: "coin-change", title: "Coin Change", topic: "Dynamic Programming", difficulty: "Medium", pattern: "1D DP", sheets: ["strivers", "neetcode"] },
+  { slug: "longest-increasing-subsequence", title: "Longest Increasing Subsequence", topic: "Dynamic Programming", difficulty: "Medium", pattern: "DP with binary search", sheets: ["strivers"] },
+  { slug: "word-break", title: "Word Break", topic: "Dynamic Programming", difficulty: "Medium", pattern: "String DP", sheets: ["neetcode"] },
+  { slug: "partition-equal-subset-sum", title: "Partition Equal Subset Sum", topic: "Dynamic Programming", difficulty: "Medium", pattern: "Knapsack", sheets: ["strivers"] },
+  { slug: "combination-sum", title: "Combination Sum", topic: "Backtracking", difficulty: "Medium", pattern: "Backtracking", sheets: ["strivers", "gfg160"] },
+  { slug: "subsets", title: "Subsets", topic: "Backtracking", difficulty: "Medium", pattern: "Backtracking", sheets: ["gfg160"] },
+  { slug: "jump-game", title: "Jump Game", topic: "Greedy", difficulty: "Medium", pattern: "Greedy reachability", sheets: ["gfg160"] },
+  { slug: "task-scheduler", title: "Task Scheduler", topic: "Heap (Priority Queue)", difficulty: "Medium", pattern: "Heap", sheets: ["neetcode"] },
+  { slug: "implement-trie-prefix-tree", title: "Implement Trie (Prefix Tree)", topic: "Trie", difficulty: "Medium", pattern: "Trie", sheets: ["neetcode"] },
+  { slug: "number-of-1-bits", title: "Number of 1 Bits", topic: "Bit Manipulation", difficulty: "Easy", pattern: "Bit tricks", sheets: ["neetcode"] },
+  { slug: "accounts-merge", title: "Accounts Merge", topic: "Union Find", difficulty: "Medium", pattern: "Union Find", sheets: ["neetcode"] }
+];
+
 export default function App() {
   const { user, loading } = useAuth();
   const [authMode, setAuthMode] = useState(null); // 'login' | 'register' | null
@@ -569,7 +603,7 @@ function Dashboard({ dashboard, onRefresh, onAnalyze }) {
         </Panel>
       </div>
 
-      <Recommendations recommendations={recommendations} />
+      <Recommendations recommendations={recommendations} dashboard={dashboard} />
     </section>
   );
 }
@@ -830,40 +864,23 @@ function Revisions({ dashboard, api, onChanged }) {
 
   // Calculate Streak
   const calculateStreak = (revisionsList) => {
-    const completedDates = (revisionsList || [])
-      .filter((r) => r.status === "completed" && r.completedAt)
-      .map((r) => new Date(r.completedAt).toDateString());
+    if (!revisionsList || revisionsList.length === 0) return 0;
 
-    const uniqueDates = [...new Set(completedDates)].map((d) => new Date(d));
-    uniqueDates.sort((a, b) => b - a);
-
-    if (uniqueDates.length === 0) return 0;
-
+    const sorted = [...revisionsList].sort((a, b) => new Date(a.scheduledFor) - new Date(b.scheduledFor));
     let streak = 0;
-    let currentCheck = new Date();
-    currentCheck.setHours(0, 0, 0, 0);
+    const now = new Date();
 
-    const latestDate = uniqueDates[0];
-    latestDate.setHours(0, 0, 0, 0);
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const r = sorted[i];
+      const sched = new Date(r.scheduledFor);
 
-    const diffTime = Math.abs(currentCheck - latestDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (sched > now && r.status === "scheduled") {
+        continue;
+      }
 
-    if (diffDays > 1) return 0;
-
-    let targetDate = latestDate;
-    for (let i = 0; i < uniqueDates.length; i++) {
-      const compareDate = uniqueDates[i];
-      compareDate.setHours(0, 0, 0, 0);
-
-      const gap = Math.round((targetDate - compareDate) / (1000 * 60 * 60 * 24));
-      if (gap === 0) {
+      if (r.status === "completed") {
         streak += 1;
-        targetDate = new Date(targetDate.getTime() - 24 * 60 * 60 * 1000);
-      } else if (gap === 1) {
-        streak += 1;
-        targetDate = new Date(compareDate.getTime() - 24 * 60 * 60 * 1000);
-      } else {
+      } else if (r.status === "skipped" || (r.status === "scheduled" && (now - sched) > 24 * 60 * 60 * 1000)) {
         break;
       }
     }
@@ -1057,79 +1074,212 @@ function Revisions({ dashboard, api, onChanged }) {
 }
 
 function Patterns({ dashboard }) {
-  const insights = dashboard.topicInsights || [];
+  const [selectedSheet, setSelectedSheet] = useState("all");
+
+  const getSheetInsights = () => {
+    const leetcodeSolvedSlugs = new Set([
+      ...(dashboard.leetcode?.recentAccepted || []).map((q) => q.titleSlug),
+      ...(dashboard.leetcode?.recentSubmissions || [])
+        .filter((q) => q.statusDisplay === "Accepted")
+        .map((q) => q.titleSlug)
+    ]);
+
+    const topicMap = {};
+    const filteredQuestions = selectedSheet === "all"
+      ? questionBank
+      : questionBank.filter((q) => q.sheets.includes(selectedSheet));
+
+    filteredQuestions.forEach((q) => {
+      if (!topicMap[q.topic]) {
+        topicMap[q.topic] = { topic: q.topic, solved: 0, total: 0, easy: 0, medium: 0, hard: 0 };
+      }
+      topicMap[q.topic].total += 1;
+      const isSolved = leetcodeSolvedSlugs.has(q.slug);
+      if (isSolved) {
+        topicMap[q.topic].solved += 1;
+        topicMap[q.topic][q.difficulty.toLowerCase()] += 1;
+      }
+    });
+
+    return Object.values(topicMap).map((topic) => {
+      const strength = Math.round((topic.solved / topic.total) * 100);
+      return {
+        topic: topic.topic,
+        solved: topic.solved,
+        total: topic.total,
+        easy: topic.easy,
+        medium: topic.medium,
+        hard: topic.hard,
+        strength
+      };
+    }).sort((a, b) => b.strength - a.strength);
+  };
+
+  const insights = selectedSheet === "all" ? (dashboard.topicInsights || []) : getSheetInsights();
 
   return (
-    <section className="grid two">
-      <Panel title="LeetCode Pattern Strength">
-        {insights.length === 0 ? (
-          <Empty text="Sync your LeetCode profile to visualize pattern mastery." />
-        ) : (
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={insights}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="topic" tick={{ fontSize: 9 }} interval={0} angle={-30} textAnchor="end" height={60} />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="strength" fill="var(--brand)" name="Mastery %" />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </Panel>
+    <section className="stack">
+      <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+        <select
+          value={selectedSheet}
+          onChange={(e) => setSelectedSheet(e.target.value)}
+          style={{ width: "220px", padding: "6px 12px", borderRadius: "6px", border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)", fontWeight: "600" }}
+        >
+          <option value="all">All LeetCode Activity</option>
+          <option value="neetcode">NeetCode Sheet</option>
+          <option value="strivers">Strivers A-Z Sheet</option>
+          <option value="gfg160">GFG 160 Sheet</option>
+        </select>
+      </div>
 
-      <Panel title="LeetCode Topic Insights">
-        {insights.length === 0 ? (
-          <Empty text="Sync your LeetCode profile to view topic analytics." />
-        ) : (
-          <div className="card-list compact" style={{ maxHeight: "320px", overflowY: "auto", paddingRight: "4px" }}>
-            {insights.map((item) => (
-              <article className="item-card" key={item.topic}>
-                <header>
-                  <strong>{item.topic}</strong>
-                  <Badge tone={item.strength >= 70 ? "good" : item.strength >= 40 ? "warn" : "danger"}>
-                    {item.strength}% Strength
-                  </Badge>
-                </header>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
-                  <span>Total Solved: {item.solved}</span>
-                  <span>E: {item.easy} | M: {item.medium} | H: {item.hard}</span>
-                </div>
-                <div className="bar-track" style={{ marginTop: "8px" }}>
-                  <div className="bar-fill" style={{ width: `${item.strength}%`, background: "var(--brand)" }} />
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </Panel>
+      <div className="grid two">
+        <Panel title="LeetCode Pattern Strength">
+          {insights.length === 0 ? (
+            <Empty text="No data available for this selection." />
+          ) : (
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={insights}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="topic" tick={{ fontSize: 9 }} interval={0} angle={-30} textAnchor="end" height={60} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="strength" fill="var(--brand)" name="Mastery %" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Panel>
+
+        <Panel title="LeetCode Topic Insights">
+          {insights.length === 0 ? (
+            <Empty text="No data available for this selection." />
+          ) : (
+            <div className="card-list compact" style={{ maxHeight: "320px", overflowY: "auto", paddingRight: "4px" }}>
+              {insights.map((item) => (
+                <article className="item-card" key={item.topic}>
+                  <header>
+                    <strong>{item.topic}</strong>
+                    <Badge tone={item.strength >= 70 ? "good" : item.strength >= 40 ? "warn" : "danger"}>
+                      {item.strength}% Strength
+                    </Badge>
+                  </header>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
+                    <span>Solved: {item.solved} {item.total ? `/ ${item.total}` : ""}</span>
+                    <span>E: {item.easy} | M: {item.medium} | H: {item.hard}</span>
+                  </div>
+                  <div className="bar-track" style={{ marginTop: "8px" }}>
+                    <div className="bar-fill" style={{ width: `${item.strength}%`, background: "var(--brand)" }} />
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </div>
     </section>
   );
 }
 
-function Recommendations({ recommendations }) {
+function Recommendations({ recommendations, dashboard }) {
+  const [recMode, setRecMode] = useState("mistakes");
+
+  const getDynamicRecommendations = () => {
+    const leetcodeSolvedSlugs = new Set([
+      ...(dashboard.leetcode?.recentAccepted || []).map((q) => q.titleSlug),
+      ...(dashboard.leetcode?.recentSubmissions || [])
+        .filter((q) => q.statusDisplay === "Accepted")
+        .map((q) => q.titleSlug)
+    ]);
+
+    const unsolvedQuestions = questionBank.filter((q) => !leetcodeSolvedSlugs.has(q.slug));
+
+    if (recMode === "mistakes") {
+      const openMistakes = (dashboard.mistakes || []).filter((m) => m.status !== "resolved");
+      if (openMistakes.length === 0) {
+        return (recommendations.questions || []).slice(0, 8);
+      }
+
+      return unsolvedQuestions.map((q) => {
+        let score = 0;
+        openMistakes.forEach((m) => {
+          if (m.topic === q.topic) score += 20;
+          if (m.pattern === q.pattern) score += 30;
+          if (m.severity >= 4 && m.topic === q.topic) score += 15;
+        });
+        return {
+          ...q,
+          score,
+          reason: `Matches topic/pattern of your logged mistakes.`
+        };
+      }).filter((q) => q.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 8);
+    } else if (recMode === "patterns") {
+      const topicInsights = dashboard.topicInsights || [];
+      const weakestTopics = new Set(topicInsights.slice(0, 3).map((t) => t.topic));
+
+      return unsolvedQuestions.map((q) => {
+        const isWeak = weakestTopics.has(q.topic);
+        return {
+          ...q,
+          score: isWeak ? 50 : 10,
+          reason: isWeak ? `Focus topic to boost pattern mastery.` : `Build coverage.`
+        };
+      }).sort((a, b) => b.score - a.score)
+        .slice(0, 8);
+    } else {
+      const sheetQs = unsolvedQuestions.filter((q) => q.sheets.includes(recMode));
+      return sheetQs.map((q) => ({
+        ...q,
+        reason: `Unsolved question from the ${recMode === "neetcode" ? "NeetCode" : recMode === "strivers" ? "Strivers A-Z" : "GFG 160"} sheet.`
+      })).slice(0, 8);
+    }
+  };
+
+  const currentRecs = getDynamicRecommendations();
+
   return (
-    <Panel title="Adaptive Practice Queue" icon={<Activity size={18} />}>
-      <div className="question-grid">
-        {recommendations.questions.map((question) => (
-          <a
-            className="question-card"
-            key={question.slug}
-            href={`https://leetcode.com/problems/${question.slug}/`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <header>
-              <strong>{question.title}</strong>
-              <Badge tone={question.difficulty === "Hard" ? "danger" : question.difficulty === "Medium" ? "warn" : "good"}>
-                {question.difficulty}
-              </Badge>
-            </header>
-            <span>{question.topic} - {question.pattern}</span>
-            <p>{question.reason}</p>
-            <ChevronRight size={18} />
-          </a>
-        ))}
-      </div>
+    <Panel 
+      title="Adaptive Practice Queue" 
+      icon={<Activity size={18} />}
+      action={
+        <select 
+          value={recMode} 
+          onChange={(e) => setRecMode(e.target.value)}
+          style={{ padding: "4px 8px", borderRadius: "4px", border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)", fontSize: "12px", fontWeight: "600" }}
+        >
+          <option value="mistakes">Focus: Logged Mistakes</option>
+          <option value="patterns">Focus: Pattern Weakness</option>
+          <option value="neetcode">Sheet: NeetCode</option>
+          <option value="strivers">Sheet: Strivers A-Z</option>
+          <option value="gfg160">Sheet: GFG 160</option>
+        </select>
+      }
+    >
+      {currentRecs.length === 0 ? (
+        <Empty text="All questions in this selection are completed! Nice job." />
+      ) : (
+        <div className="question-grid">
+          {currentRecs.map((question) => (
+            <a
+              className="question-card"
+              key={question.slug}
+              href={`https://leetcode.com/problems/${question.slug}/`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <header>
+                <strong>{question.title}</strong>
+                <Badge tone={question.difficulty === "Hard" ? "danger" : question.difficulty === "Medium" ? "warn" : "good"}>
+                  {question.difficulty}
+                </Badge>
+              </header>
+              <span>{question.topic} - {question.pattern}</span>
+              <p>{question.reason}</p>
+              <ChevronRight size={18} />
+            </a>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }
@@ -1138,27 +1288,115 @@ function Profile({ dashboard }) {
   const profile = dashboard.leetcode?.profile || {};
   const latest = dashboard.leetcode;
 
+  const buildHeatmapData = () => {
+    const data = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 83); // 12 weeks
+    const startDay = startDate.getDay();
+    startDate.setDate(startDate.getDate() - startDay); // Align to Sunday
+
+    const activityMap = {};
+
+    (dashboard.mistakes || []).forEach((m) => {
+      const dateStr = new Date(m.createdAt).toDateString();
+      activityMap[dateStr] = (activityMap[dateStr] || 0) + 1;
+    });
+
+    (dashboard.revisions || []).forEach((r) => {
+      if (r.status === "completed" && r.completedAt) {
+        const dateStr = new Date(r.completedAt).toDateString();
+        activityMap[dateStr] = (activityMap[dateStr] || 0) + 1;
+      }
+    });
+
+    const tempDate = new Date(startDate);
+    for (let i = 0; i < 84; i++) {
+      const dateStr = tempDate.toDateString();
+      const count = activityMap[dateStr] || 0;
+      data.push({
+        date: new Date(tempDate),
+        count
+      });
+      tempDate.setDate(tempDate.getDate() + 1);
+    }
+    return data;
+  };
+
+  const heatmapData = buildHeatmapData();
+
   return (
-    <section className="grid two">
-      <Panel title="LeetCode Profile">
-        {!latest ? (
-          <Empty text="Sync a LeetCode username to populate profile details." />
-        ) : (
-          <div className="profile-card">
-            {profile.userAvatar && <img src={profile.userAvatar} alt="" />}
-            <div>
-              <h2>{profile.realName || latest.username}</h2>
-              <p>Rank {profile.ranking?.toLocaleString() || "unknown"} - Reputation {profile.reputation || 0}</p>
-              <p>{profile.countryName || ""} {profile.company ? `- ${profile.company}` : ""}</p>
+    <section className="stack">
+      <div className="grid two">
+        <Panel title="LeetCode Profile">
+          {!latest ? (
+            <Empty text="Sync a LeetCode username to populate profile details." />
+          ) : (
+            <div className="profile-card">
+              {profile.userAvatar && <img src={profile.userAvatar} alt="" />}
+              <div>
+                <h2>{profile.realName || latest.username}</h2>
+                <p>Rank {profile.ranking?.toLocaleString() || "unknown"} - Reputation {profile.reputation || 0}</p>
+                <p>{profile.countryName || ""} {profile.company ? `- ${profile.company}` : ""}</p>
+              </div>
+            </div>
+          )}
+        </Panel>
+        <Panel title="Your Work In App">
+          <div className="metric-grid mini">
+            <Metric label="Mistakes logged" value={dashboard.mistakes.length} detail="All time" />
+            <Metric label="Revision sessions" value={dashboard.revisions.length} detail="Scheduled and completed" />
+            <Metric label="Patterns tracked" value={dashboard.patterns.length} detail="Confidence based" />
+          </div>
+        </Panel>
+      </div>
+
+      <Panel title="Activity Heatmap" icon={<Activity size={18} />}>
+        <div style={{ padding: "12px", background: "var(--surface-2)", borderRadius: "8px", border: "1px solid var(--line)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: "4px" }}>
+            {heatmapData.map((day, index) => {
+              const level = Math.min(4, day.count);
+              return (
+                <div
+                  key={index}
+                  title={`${day.date.toLocaleDateString()}: ${day.count} activities`}
+                  style={{
+                    width: "100%",
+                    aspectRatio: "1",
+                    borderRadius: "3px",
+                    background: level === 0 
+                      ? "var(--surface)" 
+                      : `color-mix(in srgb, var(--brand) ${level * 25}%, var(--surface))`,
+                    border: "1px solid var(--line)",
+                    transition: "all 0.1s ease",
+                    cursor: "pointer"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "scale(1.15)";
+                    e.currentTarget.style.borderColor = "var(--brand)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "none";
+                    e.currentTarget.style.borderColor = "var(--line)";
+                  }}
+                />
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", fontSize: "11px", color: "var(--muted)" }}>
+            <span>Last 12 weeks of logged mistakes & completed revisions</span>
+            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+              <span>Less</span>
+              <div style={{ width: "10px", height: "10px", background: "var(--surface)", border: "1px solid var(--line)" }} />
+              <div style={{ width: "10px", height: "10px", background: "color-mix(in srgb, var(--brand) 25%, var(--surface))", border: "1px solid var(--line)" }} />
+              <div style={{ width: "10px", height: "10px", background: "color-mix(in srgb, var(--brand) 50%, var(--surface))", border: "1px solid var(--line)" }} />
+              <div style={{ width: "10px", height: "10px", background: "color-mix(in srgb, var(--brand) 75%, var(--surface))", border: "1px solid var(--line)" }} />
+              <div style={{ width: "10px", height: "10px", background: "var(--brand)", border: "1px solid var(--line)" }} />
+              <span>More</span>
             </div>
           </div>
-        )}
-      </Panel>
-      <Panel title="Your Work In App">
-        <div className="metric-grid mini">
-          <Metric label="Mistakes logged" value={dashboard.mistakes.length} detail="All time" />
-          <Metric label="Revision sessions" value={dashboard.revisions.length} detail="Scheduled and completed" />
-          <Metric label="Patterns tracked" value={dashboard.patterns.length} detail="Confidence based" />
         </div>
       </Panel>
     </section>

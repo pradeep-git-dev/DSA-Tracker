@@ -126,4 +126,11 @@ router.delete(
   })
 );
 
+function nextReviewDate(reviewCount, severity) {
+  const days = Math.max(1, 6 - severity);
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
 export default router;

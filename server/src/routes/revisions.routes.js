@@ -34,9 +34,10 @@ router.post(
     const daysArr = input.scheduleDays.replace(/\s+/g, "").split(",").map(Number);
     const created = [];
 
+    let currentScheduledDate = new Date();
     for (const days of daysArr) {
-      const scheduledFor = new Date();
-      scheduledFor.setDate(scheduledFor.getDate() + days);
+      currentScheduledDate.setDate(currentScheduledDate.getDate() + days);
+      const scheduledFor = new Date(currentScheduledDate);
 
       created.push(
         await RevisionSession.create({
@@ -46,7 +47,7 @@ router.post(
           pattern: input.pattern || "",
           scheduledFor,
           durationMinutes: 45,
-          plan: `Spaced repetition drill for ${input.pattern || input.topic} (solved ${input.solvedCount} problems). Schedule point: Day ${days}.`
+          plan: `Spaced repetition drill for ${input.pattern || input.topic} (solved ${input.solvedCount} problems). Schedule point: Day gap ${days}.`
         })
       );
     }
