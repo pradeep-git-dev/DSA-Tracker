@@ -7,7 +7,6 @@ import { User } from "../models/User.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { fetchLeetcodeProfile } from "../services/leetcode.service.js";
 import { buildDashboard } from "../services/analytics.service.js";
-import { generateAnalysis } from "../services/analysis.service.js";
 
 const router = Router();
 
@@ -52,15 +51,6 @@ router.post(
     });
 
     res.status(201).json({ snapshot, dashboard: await buildDashboard(req.user) });
-  })
-);
-
-router.post(
-  "/analysis",
-  asyncHandler(async (req, res) => {
-    const dashboard = await buildDashboard(req.user);
-    const analysis = await generateAnalysis(req.user, dashboard);
-    res.status(201).json({ analysis, dashboard: await buildDashboard(req.user) });
   })
 );
 

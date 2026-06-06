@@ -10,7 +10,6 @@ import {
   Moon,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Sun,
   Target,
   UserRound,
@@ -497,16 +496,8 @@ function Workspace() {
     setStatus(message);
   }
 
-  async function runAnalysis() {
-    setStatus("Generating analysis from LeetCode and app signals...");
-    const payload = await api("/api/profile/analysis", { method: "POST" });
-    setDashboard(payload.dashboard);
-    setStatus(`Analysis generated with ${payload.analysis.mode === "ai" ? "AI" : "rule engine"} mode.`);
-  }
-
   const navItems = [
     ["dashboard", BarChart3, "Dashboard"],
-    ["analysis", Sparkles, "Analysis"],
     ["mistakes", ClipboardList, "Mistakes"],
     ["revisions", BookOpenCheck, "Revision"],
     ["patterns", Target, "Patterns"],
@@ -556,13 +547,11 @@ function Workspace() {
             {view === "dashboard" && (
               <Dashboard
                 dashboard={dashboard}
-                onAnalyze={runAnalysis}
                 onRefresh={() => refreshDashboard("Dashboard refreshed.")}
                 manuallySolvedSlugs={manuallySolvedSlugs}
                 toggleSolvedSlug={toggleSolvedSlug}
               />
             )}
-            {view === "analysis" && <Analysis dashboard={dashboard} onAnalyze={runAnalysis} />}
             {view === "mistakes" && <Mistakes dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
             {view === "revisions" && <Revisions dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
             {view === "patterns" && <Patterns dashboard={dashboard} api={api} onChanged={refreshDashboard} manuallySolvedSlugs={manuallySolvedSlugs} toggleSolvedSlug={toggleSolvedSlug} />}
@@ -605,7 +594,7 @@ function LeetcodeSync({ current, onSync }) {
   );
 }
 
-function Dashboard({ dashboard, onRefresh, onAnalyze, manuallySolvedSlugs, toggleSolvedSlug }) {
+function Dashboard({ dashboard, onRefresh, manuallySolvedSlugs, toggleSolvedSlug }) {
   const { metrics, attemptStats, topicInsights, uncoveredTopics, recommendations, learningCurve } = dashboard;
   const accuracy = metrics.submissions.all ? Math.round((metrics.solved.all / metrics.submissions.all) * 100) : 0;
   const strongest = [...topicInsights].sort((a, b) => b.strength - a.strength).slice(0, 5);
@@ -634,7 +623,7 @@ function Dashboard({ dashboard, onRefresh, onAnalyze, manuallySolvedSlugs, toggl
           </ResponsiveContainer>
         </Panel>
 
-        <Panel title="Dynamic Report" icon={<Brain size={18} />} action={<button onClick={onAnalyze}>Generate analysis</button>}>
+        <Panel title="Dynamic Report" icon={<Brain size={18} />}>
           <div className="report">
             <p>{recommendations.report.summary}</p>
             <p>{recommendations.report.diagnosis}</p>
@@ -660,111 +649,6 @@ function Dashboard({ dashboard, onRefresh, onAnalyze, manuallySolvedSlugs, toggl
       </div>
 
       <Recommendations recommendations={recommendations} dashboard={dashboard} manuallySolvedSlugs={manuallySolvedSlugs} toggleSolvedSlug={toggleSolvedSlug} />
-    </section>
-  );
-}
-
-function Analysis({ dashboard, onAnalyze }) {
-  const analysis = dashboard.latestAnalysis;
-  const report = analysis?.report;
-  const attemptStats = dashboard.attemptStats || {};
-
-  if (!report) {
-    return (
-      <Panel title="AI / Rule Analysis" icon={<Sparkles size={18} />} action={<button onClick={onAnalyze}>Generate analysis</button>}>
-        <Empty text="No analysis report yet. Generate one after syncing LeetCode and logging mistakes." />
-      </Panel>
-    );
-  }
-
-  return (
-    <section className="stack">
-      <div className="metric-grid">
-        <Metric label="Mode" value={analysis.mode.toUpperCase()} detail={analysis.model || analysis.provider} />
-        <Metric label="Risk" value={report.riskLevel} detail="Current learning risk" />
-        <Metric label="Confidence" value={`${Math.round(report.confidenceScore)}%`} detail="Plan confidence" />
-        <Metric label="Recent failed" value={attemptStats.failedRecent || 0} detail="LeetCode public submissions" />
-        <Metric label="Themes" value={report.mistakeThemes?.length || 0} detail="Mistake clusters found" />
-      </div>
-
-      <Panel title="Analysis Summary" icon={<Sparkles size={18} />} action={<button onClick={onAnalyze}>Regenerate</button>}>
-        <div className="report">
-          <p>{report.summary}</p>
-        </div>
-      </Panel>
-
-      <div className="grid three">
-        <Panel title="Weak Signals">
-          <div className="card-list">
-            {report.weakSignals.map((item) => (
-              <article className="item-card" key={item.area}>
-                <header>
-                  <strong>{item.area}</strong>
-                  <Badge tone="warn">focus</Badge>
-                </header>
-                <p>{item.evidence}</p>
-                <span>{item.nextAction}</span>
-              </article>
-            ))}
-          </div>
-        </Panel>
-        <Panel title="Mistake Themes">
-          <div className="card-list">
-            {report.mistakeThemes.map((item) => (
-              <article className="item-card" key={item.theme}>
-                <header>
-                  <strong>{item.theme}</strong>
-                  <Badge tone="danger">{item.count}</Badge>
-                </header>
-                <p>{item.correction}</p>
-              </article>
-            ))}
-          </div>
-        </Panel>
-        <Panel title="Revision Strategy">
-          <div className="card-list">
-            {report.revisionStrategy.map((item) => (
-              <article className="item-card" key={item.title}>
-                <header>
-                  <strong>{item.title}</strong>
-                  <Badge tone="info">{item.cadence}</Badge>
-                </header>
-                <p>{item.drill}</p>
-              </article>
-            ))}
-          </div>
-        </Panel>
-      </div>
-
-      {report.leetcodeMistakes && report.leetcodeMistakes.length > 0 && (
-        <Panel title="LeetCode Wrong Submissions (Mistakes Detected)">
-          <div className="card-list">
-            {report.leetcodeMistakes.map((mistake, idx) => (
-              <div key={idx} style={{ padding: "10px 14px", background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: "6px", fontSize: "13px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ color: "var(--danger)" }}>❌</span>
-                <span>{mistake}</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      <Panel title="AI Practice Focus">
-        <div className="question-grid">
-          {report.practiceFocus.map((item) => (
-            <article className="question-card" key={`${item.title}-${item.topic}`}>
-              <header>
-                <strong>{item.title}</strong>
-                <Badge tone={item.difficulty === "Hard" ? "danger" : item.difficulty === "Medium" ? "warn" : "good"}>
-                  {item.difficulty}
-                </Badge>
-              </header>
-              <span>{item.topic}</span>
-              <p>{item.reason}</p>
-            </article>
-          ))}
-        </div>
-      </Panel>
     </section>
   );
 }
@@ -1543,27 +1427,38 @@ function Profile({ dashboard }) {
 
     const activityMap = {};
 
-    (dashboard.mistakes || []).forEach((m) => {
-      const dateStr = new Date(m.createdAt).toDateString();
-      activityMap[dateStr] = (activityMap[dateStr] || 0) + 1;
-    });
+    const getLocalDateString = (dateInput) => {
+      if (!dateInput) return "";
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return "";
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    };
 
-    (dashboard.revisions || []).forEach((r) => {
-      if (r.status === "completed" && r.completedAt) {
-        const dateStr = new Date(r.completedAt).toDateString();
+    (dashboard.mistakes || []).forEach((m) => {
+      const dateStr = getLocalDateString(m.createdAt);
+      if (dateStr) {
         activityMap[dateStr] = (activityMap[dateStr] || 0) + 1;
       }
     });
 
-    const tempDate = new Date(startDate);
+    (dashboard.revisions || []).forEach((r) => {
+      if (r.status === "completed" && r.completedAt) {
+        const dateStr = getLocalDateString(r.completedAt);
+        if (dateStr) {
+          activityMap[dateStr] = (activityMap[dateStr] || 0) + 1;
+        }
+      }
+    });
+
     for (let i = 0; i < 84; i++) {
-      const dateStr = tempDate.toDateString();
+      const tempDate = new Date(startDate);
+      tempDate.setDate(startDate.getDate() + i);
+      const dateStr = getLocalDateString(tempDate);
       const count = activityMap[dateStr] || 0;
       data.push({
-        date: new Date(tempDate),
+        date: tempDate,
         count
       });
-      tempDate.setDate(tempDate.getDate() + 1);
     }
     return data;
   };
@@ -1713,7 +1608,6 @@ function Select({ name, options, placeholder }) {
 function viewTitle(view) {
   return {
     dashboard: "Learning dashboard",
-    analysis: "Analysis",
     mistakes: "Mistake workflow",
     revisions: "Revision plan",
     patterns: "Pattern mastery",
