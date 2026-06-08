@@ -23,7 +23,9 @@ import {
   Flame,
   Check,
   Edit3,
-  Trash2
+  Trash2,
+  X,
+  ChevronDown
 } from "lucide-react";
 import {
   Area,
@@ -393,7 +395,7 @@ function AuthModal({ mode, setMode, onClose }) {
   return (
     <div className="auth-modal-overlay" onClick={onClose}>
       <div className="auth-modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="auth-modal-close" onClick={onClose}>✕</button>
+        <button className="auth-modal-close" onClick={onClose}><X size={16} /></button>
         <form className="auth-card" onSubmit={submit} style={{ border: "none", boxShadow: "none", padding: 0, margin: 0 }}>
           <div className="segmented">
             <button type="button" className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>
@@ -938,7 +940,7 @@ function Revisions({ dashboard, api, onChanged }) {
         <div className="selected-day-panel">
           <div className="selected-day-header">
             <h3>Revisions for {selectedDaySessions.date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
-            <button className="selected-day-close" onClick={() => setSelectedDaySessions(null)}>✕</button>
+            <button className="selected-day-close" onClick={() => setSelectedDaySessions(null)}><X size={16} /></button>
           </div>
           {selectedDaySessions.sessions.length === 0 ? (
             <p className="selected-day-empty">No sessions scheduled for this day.</p>
@@ -978,7 +980,7 @@ function Revisions({ dashboard, api, onChanged }) {
                               {session.title}
                             </strong>
                             <span className="selected-day-subtitle">
-                              {session.pattern ? `${session.focusTopic} • ${session.pattern}` : session.focusTopic}
+                              {session.pattern ? `${session.focusTopic} / ${session.pattern}` : session.focusTopic}
                             </span>
                           </div>
                         )}
@@ -1230,7 +1232,10 @@ function Patterns({ dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
                 return (
                   <article className="item-card" key={item.topic} style={{ cursor: "pointer" }} onClick={() => setExpandedTopic(isExpanded ? null : item.topic)}>
                     <header>
-                      <strong>{item.topic} {isExpanded ? "▼" : "▶"}</strong>
+                      <strong style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        {item.topic}
+                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </strong>
                       <Badge tone={item.averageStrength >= 70 ? "good" : item.averageStrength >= 40 ? "warn" : "danger"}>
                         Avg: {item.averageStrength}% Strength
                       </Badge>
