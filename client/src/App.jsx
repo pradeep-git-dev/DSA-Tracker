@@ -1428,7 +1428,7 @@ function Patterns({ dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
                                         </a>
                                       </div>
                                       <div style={{ display: "flex", gap: "4px" }}>
-                                        {q.sheets.map((s) => (
+                                        {(q.sheets || []).map((s) => (
                                           <Badge key={s} tone={s === "strivers" ? "info" : s === "neetcode" ? "warn" : "good"}>
                                             {s}
                                           </Badge>
@@ -1439,7 +1439,7 @@ function Patterns({ dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
                                 })}
                               </div>
                             </div>
-
+ 
                             {t.prioritizedUnsolved.length > 0 && (
                               <div>
                                 <h5 style={{ margin: "0 0 8px 0", fontSize: "12px", color: "var(--warn)", textTransform: "uppercase" }}>High-Value Unsolved Recommendations</h5>
@@ -1454,7 +1454,7 @@ function Patterns({ dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
                                           {q.difficulty}
                                         </Badge>
                                         <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: "bold" }}>
-                                          {q.sheets.includes("strivers") && q.sheets.includes("gfg160") ? "Both Sheets" : q.sheets[0]}
+                                          {(q.sheets && q.sheets.includes("strivers") && q.sheets.includes("gfg160")) ? "Both Sheets" : (q.sheets?.[0] || "General")}
                                         </span>
                                       </div>
                                     </div>

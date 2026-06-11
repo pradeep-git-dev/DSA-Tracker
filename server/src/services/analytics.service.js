@@ -43,7 +43,17 @@ export async function buildDashboard(user) {
 
   const mistakeByTopic = groupCount(openMistakes, "topic");
   const topicInsights = mergeTopicStrength(snapshot?.topicInsights || [], mistakeByTopic, patterns);
-  const covered = new Set(topicInsights.filter((topic) => topic.solved > 0 || topic.confidence > 0).map((topic) => topic.topic));
+  const covered = new Set();
+  if (snapshot?.recentQuestions) {
+    for (const q of snapshot.recentQuestions) {
+      for (const tag of q.topicTags || []) {
+        covered.add(tag.name);
+      }
+    }
+  }
+  topicInsights.filter((topic) => topic.solved > 0 || topic.confidence > 0).forEach((topic) => {
+    covered.add(topic.topic);
+  });
   const uncoveredTopics = coreTopics.filter((topic) => !covered.has(topic));
   const recommendations = buildRecommendations({
     snapshot,
@@ -181,6 +191,16 @@ function buildLearningCurve(snapshots, latest, mistakes = []) {
     const week = 11 - Math.floor(diffDays / 7);
     weeks[week].solved += Math.min(Number(count), 8);
   });
+
+  // Build a cumulative curve for the weekly fallback
+  let solvedAccumulator = latest?.counts?.solved?.all || 0;
+  const totalSolvedInWeeks = weeks.reduce((sum, w) => sum + w.solved, 0);
+  let currentSolved = Math.max(0, solvedAccumulator - totalSolvedInWeeks);
+
+  for (let i = 0; i < 12; i++) {
+    currentSolved += weeks[i].solved;
+    weeks[i].solved = currentSolved;
+  }
 
   // Distribute active mistakes into weeks
   for (let i = 0; i < 12; i++) {
