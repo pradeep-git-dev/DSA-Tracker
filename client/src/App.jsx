@@ -507,6 +507,7 @@ function Workspace() {
     ["dashboard", BarChart3, "Dashboard"],
     ["mistakes", ClipboardList, "Mistakes"],
     ["revisions", BookOpenCheck, "Revision"],
+    ["patterns", Target, "Patterns"],
     ["profile", UserRound, "Profile"]
   ];
 
