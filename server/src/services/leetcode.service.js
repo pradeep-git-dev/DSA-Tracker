@@ -168,14 +168,18 @@ function buildTopicInsights(questions, recentSubmissions) {
   }
 
   return [...topics.values()]
-    .map((topic) => ({
-      ...topic,
-      acceptanceSignal: topic.acceptedRecent / Math.max(1, topic.acceptedRecent + topic.failedRecent),
-      strength: Math.max(
-        5,
-        Math.min(98, Math.round(topic.solved * 14 + topic.medium * 7 + topic.hard * 12 - topic.failedRecent * 10))
-      )
-    }))
+    .map((topic) => {
+      const totalAttempts = topic.acceptedRecent + topic.failedRecent;
+      const accuracyRate = totalAttempts > 0 ? (topic.acceptedRecent / totalAttempts) : 1.0;
+      let baseStrength = totalAttempts > 0 ? 40 + Math.round(accuracyRate * 55) : 80;
+      let strength = baseStrength - (topic.failedRecent * 10);
+
+      return {
+        ...topic,
+        acceptanceSignal: accuracyRate,
+        strength: Math.max(10, Math.min(98, strength))
+      };
+    })
     .sort((a, b) => b.strength - a.strength);
 }
 

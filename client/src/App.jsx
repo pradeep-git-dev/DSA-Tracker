@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -1182,10 +1182,7 @@ function Patterns({ dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
 
   const leetcodeSolvedSlugs = getCombinedSolvedSet();
 
-  // Curated Interview Sheets (Striver A2Z and GFG 160 only)
-  const sheetQuestions = questionBank.filter(
-    (q) => q.sheets.includes("strivers") || q.sheets.includes("gfg160")
-  );
+  const sheetQuestions = questionBank;
 
   const topicsList = Array.from(new Set(sheetQuestions.map((q) => q.topic)));
   const difficultyWeights = { Easy: 1, Medium: 2, Hard: 3 };
@@ -1224,12 +1221,8 @@ function Patterns({ dashboard, manuallySolvedSlugs = [], toggleSolvedSlug }) {
       solvedHard === 0 &&
       (totalMedium > 0 || totalHard > 0);
 
-    // Prioritize high-value unsolved questions (Striver + GFG 160)
+    // Prioritize high-value unsolved questions
     const prioritizedUnsolved = [...unsolvedList].sort((a, b) => {
-      const aInBoth = a.sheets.includes("strivers") && a.sheets.includes("gfg160");
-      const bInBoth = b.sheets.includes("strivers") && b.sheets.includes("gfg160");
-      if (aInBoth !== bInBoth) return aInBoth ? -1 : 1;
-
       const aWeight = difficultyWeights[a.difficulty];
       const bWeight = difficultyWeights[b.difficulty];
       return bWeight - aWeight;
