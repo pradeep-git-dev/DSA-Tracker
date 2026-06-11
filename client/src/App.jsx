@@ -507,7 +507,6 @@ function Workspace() {
     ["dashboard", BarChart3, "Dashboard"],
     ["mistakes", ClipboardList, "Mistakes"],
     ["revisions", BookOpenCheck, "Revision"],
-    ["patterns", Target, "Patterns"],
     ["profile", UserRound, "Profile"]
   ];
 
@@ -625,7 +624,8 @@ function Dashboard({ dashboard, onRefresh, manuallySolvedSlugs, toggleSolvedSlug
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip />
-              <Area dataKey="solved" stroke="var(--brand)" fill="rgba(220, 38, 38, 0.15)" />
+              <Area dataKey="solved" stroke="var(--brand)" fill="rgba(220, 38, 38, 0.15)" name="Solved Problems" />
+              <Area dataKey="mistakes" stroke="var(--warn)" fill="rgba(245, 158, 11, 0.15)" name="Active Mistakes" />
             </AreaChart>
           </ResponsiveContainer>
         </Panel>

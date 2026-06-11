@@ -81,7 +81,7 @@ export async function buildDashboard(user) {
       problemAttempts: [],
       topicAttempts: []
     },
-    learningCurve: buildLearningCurve(snapshots, snapshot),
+    learningCurve: buildLearningCurve(snapshots, snapshot, mistakes),
     topicInsights,
     uncoveredTopics,
     mistakes,
@@ -145,14 +145,23 @@ function mergeTopicStrength(topicInsights, mistakeByTopic, patterns) {
   return [...map.values()].sort((a, b) => a.strength - b.strength);
 }
 
-function buildLearningCurve(snapshots, latest) {
+function buildLearningCurve(snapshots, latest, mistakes = []) {
   if (snapshots.length > 1) {
-    return snapshots.map((snapshot) => ({
-      date: snapshot.createdAt.toISOString().slice(0, 10),
-      solved: snapshot.counts?.solved?.all || 0,
-      medium: snapshot.counts?.solved?.medium || 0,
-      hard: snapshot.counts?.solved?.hard || 0
-    }));
+    return snapshots.map((snapshot) => {
+      const snapDate = new Date(snapshot.createdAt);
+      const activeMistakes = mistakes.filter((m) => {
+        const createdDate = new Date(m.createdAt);
+        return createdDate <= snapDate && (m.status !== "resolved" || new Date(m.updatedAt) > snapDate);
+      }).length;
+
+      return {
+        date: snapshot.createdAt.toISOString().slice(0, 10),
+        solved: snapshot.counts?.solved?.all || 0,
+        medium: snapshot.counts?.solved?.medium || 0,
+        hard: snapshot.counts?.solved?.hard || 0,
+        mistakes: activeMistakes
+      };
+    });
   }
 
   const submissionsByDay = latest?.calendar?.submissionsByDay || {};
@@ -161,7 +170,8 @@ function buildLearningCurve(snapshots, latest) {
     date: `W-${11 - index}`,
     solved: 0,
     medium: 0,
-    hard: 0
+    hard: 0,
+    mistakes: 0
   }));
 
   Object.entries(submissionsByDay).forEach(([stamp, count]) => {
@@ -171,6 +181,16 @@ function buildLearningCurve(snapshots, latest) {
     const week = 11 - Math.floor(diffDays / 7);
     weeks[week].solved += Math.min(Number(count), 8);
   });
+
+  // Distribute active mistakes into weeks
+  for (let i = 0; i < 12; i++) {
+    const limitDate = new Date();
+    limitDate.setDate(today.getDate() - (11 - i) * 7);
+    weeks[i].mistakes = mistakes.filter((m) => {
+      const createdDate = new Date(m.createdAt);
+      return createdDate <= limitDate && (m.status !== "resolved" || new Date(m.updatedAt) > limitDate);
+    }).length;
+  }
 
   return weeks;
 }
