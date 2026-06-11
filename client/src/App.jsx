@@ -713,6 +713,9 @@ function Mistakes({ dashboard, api, onChanged }) {
           </select>
           <textarea name="rootCause" placeholder="Root cause" required />
           <textarea name="correction" placeholder="Correction or invariant" />
+          <input name="triggerClues" placeholder="Trigger clue in problem (e.g., sorted array)" />
+          <input name="coreInvariant" placeholder="Core invariant / approach logic" />
+          <input name="commonPitfalls" placeholder="Common pitfall to avoid" />
           {error && <p className="error">{error}</p>}
           <button className="primary-action">Save mistake</button>
         </form>
@@ -730,6 +733,28 @@ function Mistakes({ dashboard, api, onChanged }) {
                 <Badge tone={mistake.status === "resolved" ? "good" : "warn"}>{mistake.status}</Badge>
               </header>
               <p>{mistake.rootCause}</p>
+              {(mistake.triggerClues || mistake.coreInvariant || mistake.commonPitfalls) && (
+                <div style={{ background: "rgba(245, 158, 11, 0.05)", borderLeft: "3px solid var(--warn)", padding: "10px", borderRadius: "6px", margin: "10px 0", fontSize: "12px", lineHeight: "1.5", color: "var(--ink)" }}>
+                  <div style={{ fontWeight: "700", color: "var(--warn)", display: "flex", alignItems: "center", gap: "4px", marginBottom: "6px" }}>
+                    <Brain size={14} /> Intuition Helper (Live LeetCode Analysis)
+                  </div>
+                  {mistake.triggerClues && (
+                    <div style={{ marginBottom: "4px" }}>
+                      <strong>🎯 Trigger Clue:</strong> {mistake.triggerClues}
+                    </div>
+                  )}
+                  {mistake.coreInvariant && (
+                    <div style={{ marginBottom: "4px" }}>
+                      <strong>🧠 Core Invariant:</strong> {mistake.coreInvariant}
+                    </div>
+                  )}
+                  {mistake.commonPitfalls && (
+                    <div>
+                      <strong>⚠️ Common Pitfall:</strong> {mistake.commonPitfalls}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="actions" style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px" }}>
                 <button style={{ background: "var(--danger)", color: "#fff", fontSize: "12px", border: "none", padding: "6px 12px", borderRadius: "4px" }} onClick={() => review(mistake._id, false, "failed")}>Failed</button>
                 <button style={{ background: "var(--warn)", color: "#fff", fontSize: "12px", border: "none", padding: "6px 12px", borderRadius: "4px" }} onClick={() => review(mistake._id, false, "hint")}>Hint Used</button>

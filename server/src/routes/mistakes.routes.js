@@ -16,6 +16,9 @@ const mistakeSchema = z.object({
   mistakeType: z.enum(["concept", "edge-case", "implementation", "complexity", "pattern-choice", "dry-run"]),
   rootCause: z.string().min(5).max(900),
   correction: z.string().max(900).optional().default(""),
+  triggerClues: z.string().max(500).optional().default(""),
+  coreInvariant: z.string().max(500).optional().default(""),
+  commonPitfalls: z.string().max(500).optional().default(""),
   severity: z.coerce.number().min(1).max(5).default(3),
   nextReviewAt: z.coerce.date().optional()
 });

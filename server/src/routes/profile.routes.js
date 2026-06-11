@@ -8,6 +8,7 @@ import { Mistake } from "../models/Mistake.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { fetchLeetcodeProfile } from "../services/leetcode.service.js";
 import { buildDashboard } from "../services/analytics.service.js";
+import { getIntuition } from "../services/intuition.service.js";
 
 const router = Router();
 
@@ -88,6 +89,8 @@ router.post(
         const nextReviewAt = new Date();
         nextReviewAt.setDate(nextReviewAt.getDate() + 3);
 
+        const intuition = getIntuition(submission.titleSlug, topic);
+
         await Mistake.create({
           user: req.user._id,
           problemTitle: submission.title,
@@ -97,6 +100,9 @@ router.post(
           mistakeType: mistakeType,
           rootCause: `Auto-logged from LeetCode submission: ${submission.statusDisplay} (${submission.lang})`,
           correction: `Review the problem on LeetCode and fix the ${submission.statusDisplay} error.`,
+          triggerClues: intuition.triggerClues,
+          coreInvariant: intuition.coreInvariant,
+          commonPitfalls: intuition.commonPitfalls,
           severity: 3,
           status: "open",
           nextReviewAt

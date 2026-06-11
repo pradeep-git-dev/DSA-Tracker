@@ -47,6 +47,21 @@ const mistakeSchema = new mongoose.Schema(
       trim: true,
       maxlength: 900
     },
+    triggerClues: {
+      type: String,
+      trim: true,
+      maxlength: 500
+    },
+    coreInvariant: {
+      type: String,
+      trim: true,
+      maxlength: 500
+    },
+    commonPitfalls: {
+      type: String,
+      trim: true,
+      maxlength: 500
+    },
     severity: {
       type: Number,
       min: 1,
