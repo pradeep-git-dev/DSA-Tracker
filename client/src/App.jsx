@@ -45,6 +45,12 @@ import {
   PolarRadiusAxis
 } from "recharts";
 import { useAuth } from "./state/AuthContext.jsx";
+import { useDashboard } from "./hooks/useDashboard.js";
+import { createMistake, updateMistake, reviewMistake } from "./services/mistakeService.js";
+import { createCustomRevisionSessions, updateRevisionSession, deleteRevisionSession, completeRevisionSession } from "./services/revisionService.js";
+import { syncLeetcodeProfile } from "./services/leetcodeService.js";
+import { supabase } from "./lib/supabase.js";
+
 
 const topics = [
   "Array",
@@ -443,11 +449,11 @@ function AuthModal({ mode, setMode, onClose }) {
 }
 
 function Workspace() {
-  const { user, logout, api, updateUser } = useAuth();
-  const [dashboard, setDashboard] = useState(null);
+  const { user, logout, updateUser } = useAuth();
+  const { dashboard, loading, error: dbError, refreshDashboard } = useDashboard();
   const [view, setView] = useState("dashboard");
   const [status, setStatus] = useState("");
-  const [theme, setTheme] = useState(user.theme || "light");
+  const [theme, setTheme] = useState(user?.theme || "light");
   const [manuallySolvedSlugs, setManuallySolvedSlugs] = useState(() => {
     try {
       const saved = localStorage.getItem("dsa_tracker_solved_slugs");
@@ -465,41 +471,44 @@ function Workspace() {
     });
   };
 
-  const loadDashboard = async () => {
-    const payload = await api("/api/profile/dashboard");
-    setDashboard(payload);
-  };
-
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
   useEffect(() => {
-    loadDashboard().catch((err) => setStatus(err.message));
-  }, []);
+    if (user?.theme) {
+      setTheme(user.theme);
+    }
+  }, [user]);
 
   async function toggleTheme() {
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
-    const payload = await api("/api/auth/me", {
-      method: "PATCH",
-      body: JSON.stringify({ theme: nextTheme })
-    });
-    updateUser(payload.user);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ theme: nextTheme })
+        .eq("id", user.id);
+      if (error) throw error;
+      updateUser({ ...user, theme: nextTheme });
+    } catch (err) {
+      setStatus(`Failed to update theme: ${err.message}`);
+    }
   }
 
   async function syncLeetcode(username) {
     setStatus("Syncing live LeetCode profile...");
-    const payload = await api("/api/profile/leetcode/sync", {
-      method: "POST",
-      body: JSON.stringify({ username })
-    });
-    setDashboard(payload.dashboard);
-    setStatus(`Synced ${payload.snapshot.username}.`);
+    try {
+      const result = await syncLeetcodeProfile(username);
+      await refreshDashboard();
+      setStatus(`Synced ${result.snapshot.username}. Logged ${result.newLoggedCount} new mistakes.`);
+    } catch (err) {
+      setStatus(`Sync failed: ${err.message}`);
+    }
   }
 
-  async function refreshDashboard(message = "Updated.") {
-    await loadDashboard();
+  async function refreshDashboardTrigger(message = "Updated.") {
+    await refreshDashboard();
     setStatus(message);
   }
 
@@ -510,6 +519,7 @@ function Workspace() {
     ["patterns", Target, "Patterns"],
     ["profile", UserRound, "Profile"]
   ];
+
 
   return (
     <div className="app-shell">
@@ -547,21 +557,21 @@ function Workspace() {
         </header>
 
         {status && <p className="toast">{status}</p>}
-        {!dashboard ? (
+        {(!dashboard || loading) ? (
           <Splash />
         ) : (
           <>
             {view === "dashboard" && (
               <Dashboard
                 dashboard={dashboard}
-                onRefresh={() => refreshDashboard("Dashboard refreshed.")}
+                onRefresh={() => refreshDashboardTrigger("Dashboard refreshed.")}
                 manuallySolvedSlugs={manuallySolvedSlugs}
                 toggleSolvedSlug={toggleSolvedSlug}
               />
             )}
-            {view === "mistakes" && <Mistakes dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
-            {view === "revisions" && <Revisions dashboard={dashboard} api={api} onChanged={refreshDashboard} />}
-            {view === "patterns" && <Patterns dashboard={dashboard} api={api} onChanged={refreshDashboard} manuallySolvedSlugs={manuallySolvedSlugs} toggleSolvedSlug={toggleSolvedSlug} />}
+            {view === "mistakes" && <Mistakes dashboard={dashboard} onChanged={refreshDashboardTrigger} />}
+            {view === "revisions" && <Revisions dashboard={dashboard} onChanged={refreshDashboardTrigger} />}
+            {view === "patterns" && <Patterns dashboard={dashboard} manuallySolvedSlugs={manuallySolvedSlugs} toggleSolvedSlug={toggleSolvedSlug} />}
             {view === "profile" && <Profile dashboard={dashboard} />}
           </>
         )}
@@ -661,7 +671,7 @@ function Dashboard({ dashboard, onRefresh, manuallySolvedSlugs, toggleSolvedSlug
   );
 }
 
-function Mistakes({ dashboard, api, onChanged }) {
+function Mistakes({ dashboard, onChanged }) {
   const [error, setError] = useState("");
 
   async function addMistake(event) {
@@ -671,7 +681,7 @@ function Mistakes({ dashboard, api, onChanged }) {
     const form = new FormData(formEl);
     const payload = Object.fromEntries(form);
     try {
-      await api("/api/mistakes", { method: "POST", body: JSON.stringify(payload) });
+      await createMistake(payload);
       formEl.reset();
       await onChanged("Mistake recorded and revision pressure recalculated.");
     } catch (err) {
@@ -680,11 +690,16 @@ function Mistakes({ dashboard, api, onChanged }) {
   }
 
   async function review(id, resolved, rating = "hint") {
-    await api(`/api/mistakes/${id}/review`, {
-      method: "POST",
-      body: JSON.stringify({ resolved, rating })
-    });
-    await onChanged(resolved ? "Mistake resolved." : `Mistake reviewed: ${rating}`);
+    try {
+      const mistake = dashboard.mistakes.find((m) => (m.id || m._id) === id);
+      const topicInsight = dashboard.topicInsights?.find((t) => t.topic === mistake?.topic);
+      const currentProf = topicInsight ? topicInsight.strength / 100 : 0.5;
+
+      await reviewMistake(id, { resolved, rating, currentProficiencyScore: currentProf });
+      await onChanged(resolved ? "Mistake resolved." : `Mistake reviewed: ${rating}`);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   return (
@@ -769,7 +784,7 @@ function Mistakes({ dashboard, api, onChanged }) {
   );
 }
 
-function Revisions({ dashboard, api, onChanged }) {
+function Revisions({ dashboard, onChanged }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [error, setError] = useState("");
   const [selectedDaySessions, setSelectedDaySessions] = useState(null);
@@ -784,7 +799,7 @@ function Revisions({ dashboard, api, onChanged }) {
     const form = new FormData(formEl);
     const payload = Object.fromEntries(form);
     try {
-      await api("/api/revisions", { method: "POST", body: JSON.stringify(payload) });
+      await createCustomRevisionSessions(payload);
       formEl.reset();
       await onChanged("Custom spaced repetition schedule created.");
     } catch (err) {
@@ -796,15 +811,9 @@ function Revisions({ dashboard, api, onChanged }) {
     const nextStatus = currentStatus === "completed" ? "scheduled" : "completed";
     try {
       if (nextStatus === "completed") {
-        await api(`/api/revisions/${id}/complete`, {
-          method: "PATCH",
-          body: JSON.stringify({ reflection: "Completed from calendar." })
-        });
+        await completeRevisionSession(id, "Completed from calendar.");
       } else {
-        await api(`/api/revisions/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ status: "scheduled" })
-        });
+        await updateRevisionSession(id, { status: "scheduled" });
       }
       await onChanged(`Revision session marked as ${nextStatus}.`);
       setSelectedDaySessions(null);
@@ -1037,7 +1046,7 @@ function Revisions({ dashboard, api, onChanged }) {
                               onClick={async () => {
                                 if (window.confirm("Are you sure you want to delete this revision session?")) {
                                   try {
-                                    await api(`/api/revisions/${session._id}`, { method: "DELETE" });
+                                    await deleteRevisionSession(session._id);
                                     await onChanged("Revision session deleted.");
                                     setSelectedDaySessions(null);
                                   } catch (err) {
@@ -1066,9 +1075,9 @@ function Revisions({ dashboard, api, onChanged }) {
                         <button
                           onClick={async () => {
                             try {
-                              await api(`/api/revisions/${session._id}`, {
-                                method: "PATCH",
-                                body: JSON.stringify({ title: editTitle, scheduledFor: new Date(editDate) })
+                              await updateRevisionSession(session._id, {
+                                title: editTitle,
+                                scheduledFor: new Date(editDate).toISOString()
                               });
                               await onChanged("Revision session updated.");
                               setEditingSessionId(null);
