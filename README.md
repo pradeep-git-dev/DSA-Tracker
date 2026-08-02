@@ -1,35 +1,84 @@
 # DSA Mistake Tracker
 
-A MERN stack app for secure DSA progress tracking, live LeetCode profile analysis, mistake logging, adaptive practice recommendations, and revision planning.
+A full-stack MERN application that helps developers systematically improve their problem-solving skills by combining manual mistake tracking, automated LeetCode analytics, adaptive revision scheduling, and AI-powered performance insights.
 
-## Stack
+## Features
 
-- MongoDB + Mongoose for users, mistakes, revision sessions, patterns, and LeetCode snapshots.
-- Express API with Helmet, CORS, validation, rate limits, bcrypt password hashing, access JWTs, and rotating HTTP-only refresh cookies.
-- React + Vite UI with light/dark themes, dashboard analytics, mistake workflow, pattern tracking, and dynamic recommendations.
-- LeetCode GraphQL integration for public profile, solved counts, calendar, recent submissions, and recent topic inference.
-- Optional OpenAI Responses API integration for structured AI analysis. When `OPENAI_API_KEY` is not set, the app falls back to a deterministic rule engine using the same live signals.
+- Secure authentication using JWT access tokens, rotating HTTP-only refresh tokens, bcrypt password hashing, rate limiting, Helmet, CORS, and request validation.
+- Live LeetCode integration via GraphQL to fetch solved problems, submission history, activity calendar, contest data, and topic insights.
+- Intelligent mistake logging with root cause analysis, difficulty, topic, pattern, severity, notes, and scheduled revision reminders.
+- Adaptive recommendation engine that generates personalized practice questions and revision plans using LeetCode activity, mistake history, and revision performance.
+- AI-powered analysis using the OpenAI Responses API with automatic fallback to a deterministic rule-based engine when no API key is configured.
+- Analytics dashboard with progress tracking, revision statistics, topic-wise performance, mistake trends, and consistency metrics.
+- Pattern tracking to identify recurring weaknesses and measure long-term improvement.
+- Responsive React UI with light/dark themes built using Vite.
+
+## Tech Stack
+
+### Frontend
+- React
+- Vite
+- React Router
+- Axios
+- Context API
+
+### Backend
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+
+### Security
+- JWT Authentication
+- HTTP-only Refresh Cookies
+- bcrypt
+- Helmet
+- CORS
+- Express Rate Limiting
+
+### External APIs
+- LeetCode GraphQL API
+- OpenAI Responses API (Optional)
 
 ## Setup
 
 ```bash
 npm install
-copy .env.example .env
+cp .env.example .env
 npm run dev
 ```
 
-Set `MONGODB_URI`, `JWT_ACCESS_SECRET`, and `JWT_REFRESH_SECRET` in `.env`.
-Set `OPENAI_API_KEY` only if you want AI-generated analysis reports; otherwise the rule-based analyzer remains active.
+Configure the following environment variables:
 
-## Workflows
+```env
+MONGODB_URI=
+JWT_ACCESS_SECRET=
+JWT_REFRESH_SECRET=
+OPENAI_API_KEY=   # Optional
+```
 
-1. Sign up or log in.
-2. Connect a LeetCode username from the dashboard.
-3. Sync live profile data.
-4. Record mistakes with root cause, pattern, topic, severity, and follow-up date.
-5. Review due mistakes and mark revision sessions complete.
-6. Track pattern progress.
-7. Generate an analysis report from LeetCode attempts, logged mistakes, revision history, and pattern confidence.
-8. Use the recommendation page for questions and revision sessions generated from real profile data plus app behavior.
+The application automatically switches to a built-in rule-based analysis engine if the OpenAI API key is not provided.
 
-LeetCode public APIs do not expose every private failed submission or personal reasoning mistake, so the app combines public LeetCode activity with first-party mistake and revision data.
+## Workflow
+
+1. Register or log in securely.
+2. Connect your LeetCode username.
+3. Sync your latest LeetCode profile and activity.
+4. Log mistakes with detailed reasoning and root causes.
+5. Review scheduled revision sessions.
+6. Monitor recurring patterns and weak topics.
+7. Generate AI or rule-based performance analysis.
+8. Follow personalized practice recommendations based on your learning history.
+
+## Architecture
+
+- **Frontend:** React + Vite
+- **Backend:** Express REST API
+- **Database:** MongoDB
+- **Authentication:** JWT + Refresh Token Rotation
+- **Data Sources:** LeetCode GraphQL + User-generated learning data
+- **Analysis Engine:** OpenAI Responses API with deterministic fallback
+
+## Note
+
+LeetCode's public GraphQL API does not expose private failed submissions or personal reasoning behind incorrect solutions. The application combines publicly available LeetCode data with user-recorded mistakes, revision history, and learning patterns to generate personalized recommendations and performance analysis.
