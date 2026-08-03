@@ -38,7 +38,7 @@ A full-stack MERN application that helps developers systematically improve their
 
 ### External APIs
 - LeetCode GraphQL API
-- OpenAI Responses API (Optional)
+- OpenAI Responses API 
 
 ## Setup
 
