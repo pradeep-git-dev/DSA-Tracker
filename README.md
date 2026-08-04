@@ -32,7 +32,6 @@ A full-stack MERN application that helps developers systematically improve their
 - JWT Authentication
 - HTTP-only Refresh Cookies
 - bcrypt
-- Helmet
 - CORS
 - Express Rate Limiting
 
