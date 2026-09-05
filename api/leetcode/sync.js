@@ -112,6 +112,9 @@ const localQuestionBank = [
 
 async function leetcodeGraphql(query, variables) {
   const url = process.env.LEETCODE_GRAPHQL_URL || "https://leetcode.com/graphql";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -120,8 +123,10 @@ async function leetcodeGraphql(query, variables) {
       "user-agent": "DSA-Tracker/2.0"
     },
     body: JSON.stringify({ query, variables }),
-    timeout: 8000 // fail fast
+    signal: controller.signal
   });
+
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     throw new Error(`LeetCode GraphQL returned HTTP ${response.status}.`);
